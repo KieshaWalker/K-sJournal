@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants.dart';
 import '../../core/supabase_client.dart';
@@ -58,6 +59,15 @@ class _TierSelectionPageState extends ConsumerState<TierSelectionPage> {
       // Refresh the session so the new membership_tier claim is in the JWT.
       await supabase.auth.refreshSession();
       if (mounted) context.go('/auth/welcome');
+    } on FunctionException catch (e) {
+      if (e.status == 409) {
+        // Membership already exists — the user landed here with a stale JWT.
+        // Refresh the claims and continue to the dashboard.
+        await supabase.auth.refreshSession();
+        if (mounted) context.go('/dashboard');
+        return;
+      }
+      setState(() => _error = 'Activation failed. Please try again.');
     } on Exception {
       setState(() => _error = 'Activation failed. Please try again.');
     } finally {
