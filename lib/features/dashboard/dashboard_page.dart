@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/glossy_card.dart';
+import '../trades/widgets/comment_counts.dart';
 import 'providers/dashboard_providers.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -485,6 +486,10 @@ class _InFlightCardState extends State<_InFlightCard> {
                         '${pnlPct == null ? '' : '  ${pnl >= 0 ? '+' : '−'}${pnlPct.abs().toStringAsFixed(0)}%'}',
               style: KFonts.data(size: 17, color: color, weight: FontWeight.w600),
             ),
+            TradeCommentCounts(
+              trade: t,
+              padding: const EdgeInsets.only(top: 8),
+            ),
             if (_expanded) ...[
               const SizedBox(height: 14),
               Row(
@@ -636,6 +641,10 @@ class _LandedCard extends StatelessWidget {
                   weight: FontWeight.w600,
                   color: positive ? KColors.positive : KColors.negative,
                 ),
+              ),
+              TradeCommentCounts(
+                trade: t,
+                padding: const EdgeInsets.only(top: 8),
               ),
             ],
           ),

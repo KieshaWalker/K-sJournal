@@ -13,12 +13,12 @@ final preFlightTradesProvider =
       .order('created_at', ascending: false);
 });
 
-/// All in-flight trades, full detail.
+/// All in-flight trades, full detail, with comment flags for card counts.
 final inFlightTradesProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
   return supabase
       .from('trades')
-      .select('*')
+      .select('*, trade_comments(is_question)')
       .eq('status', 'in_flight')
       .order('updated_at', ascending: false);
 });
@@ -54,7 +54,8 @@ final tradeThreadProvider = FutureProvider.autoDispose
     .family<TradeThread, String>((ref, tradeId) async {
   final comments = await supabase
       .from('trade_comments')
-      .select('id, user_id, parent_comment_id, body, is_question, created_at')
+      .select('id, user_id, parent_comment_id, body, is_question, '
+          'created_at, updated_at')
       .eq('trade_id', tradeId)
       .order('created_at');
 

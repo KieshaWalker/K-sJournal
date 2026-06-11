@@ -85,7 +85,8 @@ final activeTradesProvider =
   return supabase
       .from('trades')
       .select('id, ticker, strategy_type, direction, unrealized_pnl, '
-          'pnl_percent, entry_date, entry_price, entry_iv_rank, thesis_notes')
+          'pnl_percent, entry_date, entry_price, entry_iv_rank, thesis_notes, '
+          'trade_comments(is_question)')
       .eq('status', 'in_flight')
       .order('updated_at', ascending: false);
 });
@@ -109,7 +110,7 @@ final recentlyLandedProvider =
   return supabase
       .from('trades')
       .select('id, ticker, strategy_type, realized_pnl, pnl_percent, '
-          'outcome, entry_date, exit_date')
+          'outcome, entry_date, exit_date, trade_comments(is_question)')
       .eq('status', 'landed')
       .order('exit_date', ascending: false)
       .limit(5);

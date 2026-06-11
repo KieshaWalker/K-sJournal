@@ -6,6 +6,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/glossy_card.dart';
 import 'providers/trade_providers.dart';
+import 'widgets/comment_counts.dart';
 
 /// Member-facing list for one trade status: /ideas shows pre-flight,
 /// /positions shows in-flight. Cards open the full trade detail page.
@@ -169,12 +170,15 @@ class _TradeCard extends StatelessWidget {
                 style: const TextStyle(fontSize: 13, height: 1.5),
               ),
               const SizedBox(height: 8),
-              const Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  'Full details →',
-                  style: TextStyle(fontSize: 12, color: KColors.accent),
-                ),
+              Row(
+                children: [
+                  TradeCommentCounts(trade: t),
+                  const Spacer(),
+                  const Text(
+                    'Full details →',
+                    style: TextStyle(fontSize: 12, color: KColors.accent),
+                  ),
+                ],
               ),
             ],
           ),

@@ -479,7 +479,17 @@ class _DiscussionCardState extends ConsumerState<_DiscussionCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           thread.maybeWhen(
-            data: (d) => _Label('Discussion (${d.comments.length})'),
+            data: (d) {
+              if (d.comments.isEmpty) return const _Label('Discussion');
+              final q =
+                  d.comments.where((c) => c['is_question'] == true).length;
+              final c = d.comments.length - q;
+              final parts = [
+                if (q > 0) '$q question${q == 1 ? '' : 's'}',
+                if (c > 0) '$c comment${c == 1 ? '' : 's'}',
+              ];
+              return _Label('Discussion · ${parts.join(' · ')}');
+            },
             orElse: () => const _Label('Discussion'),
           ),
           const SizedBox(height: 12),
@@ -502,9 +512,11 @@ class _DiscussionCardState extends ConsumerState<_DiscussionCard> {
                     children: [
                       for (final c in d.comments)
                         _CommentTile(
+                          key: ValueKey(c['id']),
                           comment: c,
                           username:
                               d.usernames[c['user_id']] ?? 'member',
+                          tradeId: widget.tradeId,
                         ),
                     ],
                   ),
@@ -568,17 +580,91 @@ class _DiscussionCardState extends ConsumerState<_DiscussionCard> {
   }
 }
 
-class _CommentTile extends StatelessWidget {
-  const _CommentTile({required this.comment, required this.username});
+class _CommentTile extends ConsumerStatefulWidget {
+  const _CommentTile({
+    super.key,
+    required this.comment,
+    required this.username,
+    required this.tradeId,
+  });
 
   final Map<String, dynamic> comment;
   final String username;
+  final String tradeId;
+
+  @override
+  ConsumerState<_CommentTile> createState() => _CommentTileState();
+}
+
+class _CommentTileState extends ConsumerState<_CommentTile> {
+  /// Non-null while the comment is being edited.
+  TextEditingController? _edit;
+  bool _busy = false;
+
+  /// Mirrors the RLS author window; the server enforces it regardless.
+  static const _authorWindow = Duration(hours: 48);
+
+  Future<void> _saveEdit() async {
+    final body = _edit!.text.trim();
+    if (body.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      await supabase
+          .from('trade_comments')
+          .update({'body': body}).eq('id', widget.comment['id'] as String);
+      ref.invalidate(tradeThreadProvider(widget.tradeId));
+      if (mounted) setState(() => _edit = null);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _delete(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this comment?'),
+        content: const Text('It will be removed for everyone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: KColors.negative),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await supabase
+        .from('trade_comments')
+        .delete()
+        .eq('id', widget.comment['id'] as String);
+    ref.invalidate(tradeThreadProvider(widget.tradeId));
+  }
 
   @override
   Widget build(BuildContext context) {
-    final created =
-        DateTime.tryParse(comment['created_at'] as String? ?? '')?.toLocal();
-    final isQuestion = comment['is_question'] == true;
+    final c = widget.comment;
+    final created = DateTime.tryParse(c['created_at'] as String? ?? '');
+    final updated = DateTime.tryParse(c['updated_at'] as String? ?? '');
+    final isQuestion = c['is_question'] == true;
+    final isAdmin = ref.watch(isAdminProvider);
+    final isOwn = c['user_id'] == supabase.auth.currentUser?.id;
+    final inWindow = created != null &&
+        DateTime.now().toUtc().difference(created.toUtc()) < _authorWindow;
+    final canEdit = isOwn && (isAdmin || inWindow);
+    final canDelete = isAdmin || (isOwn && inWindow);
+    final wasEdited = created != null &&
+        updated != null &&
+        updated.difference(created).inSeconds > 1;
+    final editing = _edit != null;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
@@ -587,7 +673,7 @@ class _CommentTile extends StatelessWidget {
           Row(
             children: [
               Text(
-                '@$username',
+                '@${widget.username}',
                 style: KFonts.data(
                   size: 12,
                   weight: FontWeight.w600,
@@ -613,23 +699,105 @@ class _CommentTile extends StatelessWidget {
                     ),
                   ),
                 ),
+              if (wasEdited) ...[
+                const SizedBox(width: 8),
+                const Text(
+                  '(edited)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: KColors.memberTextSecondary,
+                  ),
+                ),
+              ],
               const Spacer(),
               if (created != null)
                 Text(
-                  DateFormat('MMM d, h:mm a').format(created),
+                  DateFormat('MMM d, h:mm a').format(created.toLocal()),
                   style: const TextStyle(
                     fontSize: 11,
                     color: KColors.memberTextSecondary,
                   ),
                 ),
+              if (canEdit && !editing) ...[
+                const SizedBox(width: 4),
+                _TinyIconButton(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Edit (within 48h)',
+                  onTap: () => setState(() {
+                    _edit = TextEditingController(text: c['body'] as String);
+                  }),
+                ),
+              ],
+              if (canDelete && !editing) ...[
+                const SizedBox(width: 4),
+                _TinyIconButton(
+                  icon: Icons.delete_outline,
+                  tooltip: 'Delete (within 48h)',
+                  onTap: () => _delete(context),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            comment['body'] as String,
-            style: const TextStyle(fontSize: 13, height: 1.5),
-          ),
+          if (editing) ...[
+            TextField(
+              controller: _edit,
+              maxLines: 3,
+              minLines: 1,
+              maxLength: 2000,
+              decoration: const InputDecoration(counterText: ''),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _busy ? null : () => setState(() => _edit = null),
+                  child: const Text('Cancel', style: TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(width: 4),
+                TextButton(
+                  onPressed: _busy ? null : _saveEdit,
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(fontSize: 12, color: KColors.accent),
+                  ),
+                ),
+              ],
+            ),
+          ] else
+            Text(
+              c['body'] as String,
+              style: const TextStyle(fontSize: 13, height: 1.5),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _TinyIconButton extends StatelessWidget {
+  const _TinyIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: Icon(icon, size: 14, color: KColors.memberTextSecondary),
+        ),
       ),
     );
   }
