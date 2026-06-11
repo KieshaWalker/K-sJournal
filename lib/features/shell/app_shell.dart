@@ -16,6 +16,7 @@ class AppShell extends ConsumerWidget {
     (label: 'Dashboard', path: '/dashboard'),
     (label: 'In-Flight', path: '/positions'),
     (label: 'Pre-Flight', path: '/ideas'),
+    (label: 'Community', path: '/community'),
   ];
 
   @override
@@ -31,41 +32,53 @@ class AppShell extends ConsumerWidget {
         body: Column(
           children: [
             Container(
-              height: 56,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              height: 64,
+              padding: const EdgeInsets.symmetric(horizontal: 28),
               decoration: const BoxDecoration(
                 color: KColors.memberBgSurface,
                 border:
-                    Border(bottom: BorderSide(color: KColors.memberBorder)),
+                    Border(bottom: BorderSide(color: Color(0x26C9A84C))),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x0F000000),
+                    blurRadius: 16,
+                    offset: Offset(0, 4),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  Text(
-                    "K's Journal",
-                    style: KFonts.wordmark(KColors.accent).copyWith(fontSize: 30),
-                  ),
-                  const SizedBox(width: 48),
-                  for (final link in _links)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 32),
-                      child: InkWell(
-                        onTap: () => context.go(link.path),
+                  // Gold-foil wordmark — gradient leaf, not flat color.
+                  // Shadow lives on a layer behind the mask: srcIn would
+                  // tint an in-style shadow gold.
+                  Stack(
+                    children: [
+                      Text(
+                        "K's Journal",
+                        style: KFonts.wordmark(Colors.transparent).copyWith(
+                            fontSize: 30, shadows: KShadows.wordmark),
+                      ),
+                      ShaderMask(
+                        shaderCallback: KGold.foilShader,
+                        blendMode: BlendMode.srcIn,
                         child: Text(
-                          link.label,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: location.startsWith(link.path)
-                                ? KColors.memberTextPrimary
-                                : KColors.memberTextSecondary,
-                            fontWeight: location.startsWith(link.path)
-                                ? FontWeight.w500
-                                : FontWeight.w400,
-                          ),
+                          "K's Journal",
+                          style: KFonts.wordmark(Colors.white)
+                              .copyWith(fontSize: 30),
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(width: 52),
+                  for (final link in _links)
+                    _NavLink(
+                      label: link.label,
+                      active: location.startsWith(link.path),
+                      onTap: () => context.go(link.path),
                     ),
                   if (isAdmin)
                     PopupMenuButton<String>(
+                      tooltip: 'Admin',
                       onSelected: (path) => context.go(path),
                       itemBuilder: (_) => const [
                         PopupMenuItem(
@@ -74,12 +87,27 @@ class AppShell extends ConsumerWidget {
                             value: '/admin/invites',
                             child: Text('Invite Codes')),
                       ],
-                      child: const Text('Admin ▾',
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0x59C9A84C)),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'ADMIN  ▾',
                           style: TextStyle(
-                              fontSize: 13, color: KColors.accent)),
+                            fontSize: 11,
+                            letterSpacing: 1.5,
+                            fontWeight: FontWeight.w600,
+                            color: KColors.memberAccentHover,
+                          ),
+                        ),
+                      ),
                     ),
                   const Spacer(),
                   PopupMenuButton<String>(
+                    tooltip: '',
                     onSelected: (v) async {
                       if (v == 'settings') context.go('/settings');
                       if (v == 'signout') {
@@ -91,15 +119,101 @@ class AppShell extends ConsumerWidget {
                       PopupMenuItem(value: 'settings', child: Text('Settings')),
                       PopupMenuItem(value: 'signout', child: Text('Sign Out')),
                     ],
-                    child: Text('@$username',
-                        style: const TextStyle(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 30,
+                          height: 30,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            gradient: KGold.foil,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            username.isEmpty
+                                ? '?'
+                                : username[0].toUpperCase(),
+                            style: KFonts.heading(
+                                color: Colors.black, size: 14),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '@$username',
+                          style: const TextStyle(
                             fontSize: 13,
-                            color: KColors.memberTextSecondary)),
+                            color: KColors.memberTextSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-            Expanded(child: child),
+            // Content sits under a faint top-lit gold wash — showroom light.
+            Expanded(
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment(0, -1.2),
+                    radius: 1.6,
+                    colors: [Color(0x12C9A84C), Color(0x00C9A84C)],
+                  ),
+                ),
+                child: child,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavLink extends StatelessWidget {
+  const _NavLink({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 36),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                fontSize: 12,
+                letterSpacing: 1.8,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                color: active
+                    ? KColors.memberTextPrimary
+                    : KColors.memberTextSecondary,
+                shadows: KShadows.text,
+              ),
+            ),
+            const SizedBox(height: 5),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              height: 2,
+              width: active ? 24 : 0,
+              decoration: const BoxDecoration(gradient: KGold.foil),
+            ),
           ],
         ),
       ),

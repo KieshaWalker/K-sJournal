@@ -21,29 +21,32 @@ class DashboardPage extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SectionLabel('Insights'),
-                        SizedBox(height: 12),
-                        _InsightCard(),
-                      ],
+              const _Reveal(
+                order: 0,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SectionLabel('Insights'),
+                          SizedBox(height: 12),
+                          _InsightCard(),
+                        ],
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 24),
-                  Expanded(child: _MacroPulse()),
-                ],
+                    SizedBox(width: 24),
+                    Expanded(child: _MacroPulse()),
+                  ],
+                ),
               ),
               const SizedBox(height: 32),
-              const _IdeasSection(),
+              const _Reveal(order: 1, child: _IdeasSection()),
               const SizedBox(height: 32),
-              const _InFlightSection(),
+              const _Reveal(order: 2, child: _InFlightSection()),
               const SizedBox(height: 32),
-              const _RecentlyLanded(),
+              const _Reveal(order: 3, child: _RecentlyLanded()),
             ],
           ),
         ),
@@ -58,14 +61,25 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text.toUpperCase(),
-      style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 1.5,
-        color: KColors.memberTextSecondary,
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 18,
+          height: 2,
+          margin: const EdgeInsets.only(right: 10),
+          decoration: const BoxDecoration(gradient: KGold.foil),
+        ),
+        Text(
+          text.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.5,
+            color: KColors.memberTextSecondary,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -82,8 +96,16 @@ class _SectionHeader extends StatelessWidget {
     return Row(
       children: [
         _SectionLabel(label),
-        const Spacer(),
-        if (linkLabel != null && linkPath != null)
+        const SizedBox(width: 16),
+        // The rule of the house: a gold hairline that dissolves rightward.
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: const BoxDecoration(gradient: KGold.hairline),
+          ),
+        ),
+        if (linkLabel != null && linkPath != null) ...[
+          const SizedBox(width: 16),
           TextButton(
             onPressed: () => context.go(linkPath!),
             child: Text(
@@ -91,7 +113,46 @@ class _SectionHeader extends StatelessWidget {
               style: const TextStyle(fontSize: 12, letterSpacing: 0.5),
             ),
           ),
+        ],
       ],
+    );
+  }
+}
+
+/// Sections rise into place as the page opens — staggered, brief, once.
+class _Reveal extends StatefulWidget {
+  const _Reveal({required this.order, required this.child});
+
+  final int order;
+  final Widget child;
+
+  @override
+  State<_Reveal> createState() => _RevealState();
+}
+
+class _RevealState extends State<_Reveal> {
+  bool _shown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(milliseconds: 60 + widget.order * 90), () {
+      if (mounted) setState(() => _shown = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: _shown ? 1 : 0,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      child: AnimatedSlide(
+        offset: _shown ? Offset.zero : const Offset(0, 0.04),
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
+      ),
     );
   }
 }
@@ -144,23 +205,29 @@ class _InsightCardState extends ConsumerState<_InsightCard> {
                       "K's Take — ${DateFormat('MMMM d, yyyy').format(date)}",
                     ),
                     const Spacer(),
-                    if (bias != null) ...[
-                      Icon(
-                        Icons.circle,
-                        size: 8,
-                        color: _biasColors[bias] ?? KColors.neutral,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        bias.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.5,
-                          color: _biasColors[bias] ?? KColors.neutral,
+                    if (bias != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (_biasColors[bias] ?? KColors.neutral)
+                              .withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: (_biasColors[bias] ?? KColors.neutral)
+                                .withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Text(
+                          bias.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.5,
+                            color: _biasColors[bias] ?? KColors.neutral,
+                          ),
                         ),
                       ),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -612,15 +679,7 @@ class _LandedCard extends StatelessWidget {
                     style: KFonts.data(size: 13, weight: FontWeight.w600),
                   ),
                   const Spacer(),
-                  Icon(
-                    Icons.circle,
-                    size: 8,
-                    color: outcome == 'win'
-                        ? KColors.positive
-                        : outcome == 'loss'
-                        ? KColors.negative
-                        : KColors.neutral,
-                  ),
+                  if (outcome != null) _OutcomePill(outcome),
                 ],
               ),
               const SizedBox(height: 6),
@@ -648,6 +707,37 @@ class _LandedCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OutcomePill extends StatelessWidget {
+  const _OutcomePill(this.outcome);
+  final String outcome;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = outcome == 'win'
+        ? KColors.positive
+        : outcome == 'loss'
+        ? KColors.negative
+        : KColors.neutral;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        outcome.toUpperCase(),
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.2,
+          color: color,
         ),
       ),
     );

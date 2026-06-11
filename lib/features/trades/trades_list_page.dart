@@ -41,8 +41,8 @@ class TradesListPage extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(
                 _isPreFlight
-                    ? 'Setups on the runway — refined, sized, not yet executed.'
-                    : 'Live positions, updates them.',
+                    ? 'Setups on the runway'
+                    : 'Live positions, as K updates them.',
                 style: const TextStyle(
                   fontSize: 13,
                   color: KColors.memberTextSecondary,

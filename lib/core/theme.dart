@@ -4,6 +4,41 @@ import 'package:google_fonts/google_fonts.dart';
 /// Typography: "Built by money to show you money."
 /// Playfair Display carries the wordmark and headings (old-money serif),
 /// Inter handles body copy, JetBrains Mono handles numbers and tickers.
+/// Gold treatments. Flat gold is for accents; foil is for moments.
+abstract final class KGold {
+  /// Champagne-to-bronze foil, lit from the upper left like metal leaf.
+  static const foil = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFF2DEA0), // champagne highlight
+      Color(0xFFC9A84C), // house gold
+      Color(0xFF8F7430), // bronze shadow
+    ],
+    stops: [0.0, 0.55, 1.0],
+  );
+
+  /// Hairline that dissolves to nothing — for section rules.
+  static const hairline = LinearGradient(
+    colors: [Color(0x66C9A84C), Color(0x00C9A84C)],
+  );
+
+  static Shader foilShader(Rect bounds) => foil.createShader(bounds);
+}
+
+/// Soft drop shadows that lift text off the cream nav bar.
+abstract final class KShadows {
+  /// Nav links and other small UI text.
+  static const text = [
+    Shadow(color: Color(0x33000000), offset: Offset(2, 1), blurRadius: 3),
+  ];
+
+  /// Wordmark — larger type carries a deeper shadow.
+  static const wordmark = [
+    Shadow(color: Color(0x40000000), offset: Offset(0, 0), blurRadius: 1),
+  ];
+}
+
 abstract final class KFonts {
   static TextStyle wordmark(Color color) => GoogleFonts.playfairDisplay(
         color: color,
@@ -59,7 +94,7 @@ abstract final class KColors {
   static const authAccentHover = Color(0xFFE0BE6A);
 
   // Member (cream) theme
-  static const memberBgBase = Color(0xFFF7F3EA);
+  static const memberBgBase = Color(0xFF2C362F); // beutiful green
   static const memberBgSurface = Color(0xFFFFFDF8);
   static const memberBgElevated = Color(0xFFFFFFFF);
   static const memberBorder = Color(0x14000000); // black @ 8%
