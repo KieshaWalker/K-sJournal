@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/supabase_client.dart';
 import '../../core/theme.dart';
+import '../dashboard/providers/dashboard_providers.dart';
 import 'providers/admin_trade_providers.dart';
 import 'widgets/idea_form.dart';
 import 'widgets/in_flight_form.dart';
+import 'widgets/insight_form.dart';
 import 'widgets/land_form.dart';
+import 'widgets/new_trade_picker.dart';
 import 'widgets/pre_flight_form.dart';
 
 class TradeEntryPage extends ConsumerWidget {
@@ -19,113 +22,164 @@ class TradeEntryPage extends ConsumerWidget {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text('Trade Workbench', style: KFonts.heading(size: 24)),
-                const Spacer(),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: KColors.accent,
-                    foregroundColor: Colors.black,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('Trade Workbench', style: KFonts.heading(size: 24)),
+                  const Spacer(),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.lightbulb_outline, size: 18),
+                    label: const Text('New Insight'),
+                    onPressed: () => showDialog(
+                      context: context,
+                      builder: (_) => const InsightFormDialog(),
+                    ).then((_) => ref.invalidate(latestInsightProvider)),
                   ),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('New Idea'),
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (_) => const IdeaFormDialog(),
-                  ).then((_) => ref.invalidate(adminTradesProvider)),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.flight_takeoff, size: 18),
+                    label: const Text('New Trade'),
+                    onPressed: () => showDialog<Map<String, dynamic>>(
+                      context: context,
+                      builder: (_) => const NewTradePickerDialog(),
+                    ).then((idea) {
+                      if (idea != null && context.mounted) {
+                        _openDialog(
+                          context,
+                          ref,
+                          PreFlightFormDialog(trade: idea),
+                        );
+                      }
+                    }),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: KColors.accent,
+                      foregroundColor: Colors.black,
+                    ),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('New Idea'),
+                    onPressed: () => showDialog(
+                      context: context,
+                      builder: (_) => const IdeaFormDialog(),
+                    ).then((_) => ref.invalidate(adminTradesProvider)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              trades.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Text(
+                  'Failed to load trades: $e',
+                  style: const TextStyle(color: KColors.negative),
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            trades.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('Failed to load trades: $e',
-                  style: const TextStyle(color: KColors.negative)),
-              data: (data) {
-                final byStatus = <String, List<Map<String, dynamic>>>{};
-                for (final t in data) {
-                  byStatus.putIfAbsent(t['status'] as String, () => []).add(t);
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _StatusSection(
-                      title: 'Ideas',
-                      trades: byStatus['idea'] ?? const [],
-                      emptyText: 'No ideas captured.',
-                      actionLabel: 'Refine Setup →',
-                      onAction: (t) => _openDialog(
-                          context, ref, PreFlightFormDialog(trade: t)),
-                    ),
-                    _StatusSection(
-                      title: 'Pre-Flight',
-                      trades: byStatus['pre_flight'] ?? const [],
-                      emptyText: 'Nothing on the runway.',
-                      actionLabel: 'Promote to In-Flight →',
-                      onAction: (t) => _openDialog(
-                          context, ref, InFlightFormDialog(trade: t)),
-                    ),
-                    _StatusSection(
-                      title: 'In-Flight',
-                      trades: byStatus['in_flight'] ?? const [],
-                      emptyText: 'No live positions.',
-                      actionLabel: 'Close Trade →',
-                      onAction: (t) =>
-                          _openDialog(context, ref, LandFormDialog(trade: t)),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-            const Text('RECENTLY LANDED',
+                data: (data) {
+                  final byStatus = <String, List<Map<String, dynamic>>>{};
+                  for (final t in data) {
+                    byStatus
+                        .putIfAbsent(t['status'] as String, () => [])
+                        .add(t);
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _StatusSection(
+                        title: 'Ideas',
+                        trades: byStatus['idea'] ?? const [],
+                        emptyText: 'No ideas captured.',
+                        actionLabel: 'Refine Setup →',
+                        onAction: (t) => _openDialog(
+                          context,
+                          ref,
+                          PreFlightFormDialog(trade: t),
+                        ),
+                      ),
+                      _StatusSection(
+                        title: 'Pre-Flight',
+                        trades: byStatus['pre_flight'] ?? const [],
+                        emptyText: 'Nothing on the runway.',
+                        actionLabel: 'Promote to In-Flight →',
+                        onAction: (t) => _openDialog(
+                          context,
+                          ref,
+                          InFlightFormDialog(trade: t),
+                        ),
+                      ),
+                      _StatusSection(
+                        title: 'In-Flight',
+                        trades: byStatus['in_flight'] ?? const [],
+                        emptyText: 'No live positions.',
+                        actionLabel: 'Close Trade →',
+                        onAction: (t) =>
+                            _openDialog(context, ref, LandFormDialog(trade: t)),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'RECENTLY LANDED',
                 style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
-                    color: KColors.memberTextSecondary)),
-            const SizedBox(height: 12),
-            landed.maybeWhen(
-              data: (rows) => rows.isEmpty
-                  ? const Text('None yet.',
-                      style: TextStyle(
-                          color: KColors.memberTextSecondary, fontSize: 13))
-                  : Card(
-                      child: Column(children: [
-                        for (final t in rows)
-                          ListTile(
-                            dense: true,
-                            leading: Icon(Icons.circle,
-                                size: 8,
-                                color: t['outcome'] == 'win'
-                                    ? KColors.positive
-                                    : t['outcome'] == 'loss'
-                                        ? KColors.negative
-                                        : KColors.neutral),
-                            title: Text(
-                                '${t['ticker']}  ·  ${strategyLabel(t['strategy_type'] as String)}',
-                                style: const TextStyle(fontSize: 13)),
-                            trailing: Text(
-                              _pnlText(t),
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  color: ((t['realized_pnl'] as num?) ?? 0) >= 0
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.5,
+                  color: KColors.memberTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              landed.maybeWhen(
+                data: (rows) => rows.isEmpty
+                    ? const Text(
+                        'None yet.',
+                        style: TextStyle(
+                          color: KColors.memberTextSecondary,
+                          fontSize: 13,
+                        ),
+                      )
+                    : Card(
+                        child: Column(
+                          children: [
+                            for (final t in rows)
+                              ListTile(
+                                dense: true,
+                                leading: Icon(
+                                  Icons.circle,
+                                  size: 8,
+                                  color: t['outcome'] == 'win'
                                       ? KColors.positive
-                                      : KColors.negative),
-                            ),
-                          ),
-                      ]),
-                    ),
-              orElse: () => const SizedBox.shrink(),
-            ),
-          ],
+                                      : t['outcome'] == 'loss'
+                                      ? KColors.negative
+                                      : KColors.neutral,
+                                ),
+                                title: Text(
+                                  '${t['ticker']}  ·  ${strategyLabel(t['strategy_type'] as String)}',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                trailing: Text(
+                                  _pnlText(t),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color:
+                                        ((t['realized_pnl'] as num?) ?? 0) >= 0
+                                        ? KColors.positive
+                                        : KColors.negative,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                orElse: () => const SizedBox.shrink(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -141,8 +195,10 @@ class TradeEntryPage extends ConsumerWidget {
   }
 
   void _openDialog(BuildContext context, WidgetRef ref, Widget dialog) {
-    showDialog(context: context, builder: (_) => dialog)
-        .then((_) => ref.invalidate(adminTradesProvider));
+    showDialog(
+      context: context,
+      builder: (_) => dialog,
+    ).then((_) => ref.invalidate(adminTradesProvider));
   }
 }
 
@@ -166,58 +222,73 @@ class _StatusSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${title.toUpperCase()} (${trades.length})',
-            style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.5,
-                color: KColors.memberTextSecondary)),
+        Text(
+          '${title.toUpperCase()} (${trades.length})',
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.5,
+            color: KColors.memberTextSecondary,
+          ),
+        ),
         const SizedBox(height: 12),
         if (trades.isEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 24),
-            child: Text(emptyText,
-                style: const TextStyle(
-                    color: KColors.memberTextSecondary, fontSize: 13)),
+            child: Text(
+              emptyText,
+              style: const TextStyle(
+                color: KColors.memberTextSecondary,
+                fontSize: 13,
+              ),
+            ),
           )
         else
           Padding(
             padding: const EdgeInsets.only(bottom: 24),
             child: Card(
-              child: Column(children: [
-                for (final t in trades)
-                  ListTile(
-                    title: Text(
-                      '${t['ticker']}  ·  ${strategyLabel(t['strategy_type'] as String)}  ·  ${t['direction']}',
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w500),
-                    ),
-                    subtitle: Text(
-                      (t['thesis_notes'] as String?) ?? '',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, height: 1.5),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (t['status'] == 'idea' ||
-                            t['status'] == 'pre_flight')
-                          IconButton(
-                            tooltip: 'Delete (allowed pre-execution only)',
-                            icon: const Icon(Icons.delete_outline, size: 18),
-                            onPressed: () => _confirmDelete(context, ref, t),
-                          ),
-                        TextButton(
-                          onPressed: () => onAction(t),
-                          child: Text(actionLabel,
-                              style: const TextStyle(
-                                  fontSize: 12, color: KColors.accent)),
+              child: Column(
+                children: [
+                  for (final t in trades)
+                    ListTile(
+                      title: Text(
+                        '${t['ticker']}  ·  ${strategyLabel(t['strategy_type'] as String)}  ·  ${t['direction']}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                         ),
-                      ],
+                      ),
+                      subtitle: Text(
+                        (t['thesis_notes'] as String?) ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, height: 1.5),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (t['status'] == 'idea' ||
+                              t['status'] == 'pre_flight')
+                            IconButton(
+                              tooltip: 'Delete (allowed pre-execution only)',
+                              icon: const Icon(Icons.delete_outline, size: 18),
+                              onPressed: () => _confirmDelete(context, ref, t),
+                            ),
+                          TextButton(
+                            onPressed: () => onAction(t),
+                            child: Text(
+                              actionLabel,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: KColors.accent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-              ]),
+                ],
+              ),
             ),
           ),
       ],
@@ -225,22 +296,30 @@ class _StatusSection extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, Map<String, dynamic> t) async {
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> t,
+  ) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Delete ${t['ticker']} ${t['status']}?'),
         content: const Text(
-            'Only ideas and pre-flight entries can be deleted. '
-            'Executed trades are permanent.'),
+          'Only ideas and pre-flight entries can be deleted. '
+          'Executed trades are permanent.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child:
-                  const Text('Delete', style: TextStyle(color: KColors.negative))),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: KColors.negative),
+            ),
+          ),
         ],
       ),
     );

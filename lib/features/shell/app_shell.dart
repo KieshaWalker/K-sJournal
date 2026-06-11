@@ -14,9 +14,8 @@ class AppShell extends ConsumerWidget {
 
   static const _links = [
     (label: 'Dashboard', path: '/dashboard'),
-    (label: 'Positions', path: '/positions'),
-    (label: 'Ideas', path: '/ideas'),
-    (label: 'Settings', path: '/settings'),
+    (label: 'In-Flight', path: '/positions'),
+    (label: 'Pre-Flight', path: '/ideas'),
   ];
 
   @override
@@ -43,7 +42,7 @@ class AppShell extends ConsumerWidget {
                 children: [
                   Text(
                     "K's Journal",
-                    style: KFonts.wordmark(KColors.accent).copyWith(fontSize: 18),
+                    style: KFonts.wordmark(KColors.accent).copyWith(fontSize: 30),
                   ),
                   const SizedBox(width: 48),
                   for (final link in _links)
@@ -71,8 +70,6 @@ class AppShell extends ConsumerWidget {
                       itemBuilder: (_) => const [
                         PopupMenuItem(
                             value: '/admin/trade', child: Text('Trade Entry')),
-                        PopupMenuItem(
-                            value: '/admin/insights', child: Text('Insights')),
                         PopupMenuItem(
                             value: '/admin/invites',
                             child: Text('Invite Codes')),

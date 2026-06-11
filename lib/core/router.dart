@@ -9,11 +9,14 @@ import '../features/auth/landing_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/register_page.dart';
 import '../features/auth/tier_selection_page.dart';
+import '../features/admin/invites_page.dart';
 import '../features/admin/trade_entry_page.dart';
 import '../features/auth/welcome_page.dart';
 import '../features/dashboard/dashboard_page.dart';
 import '../features/shell/app_shell.dart';
 import '../features/shell/placeholder_page.dart';
+import '../features/trades/trade_detail_page.dart';
+import '../features/trades/trades_list_page.dart';
 import 'providers/auth_provider.dart';
 import 'supabase_client.dart';
 
@@ -36,9 +39,13 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: AuthChangeNotifier(),
     redirect: (context, state) {
+      // Read claims straight off the live session: the Riverpod session
+      // provider updates one event-loop turn after signIn completes, and a
+      // redirect that runs in that gap would see stale (null) claims and
+      // wrongly park members on the tier page.
       final session = supabase.auth.currentSession;
       final isAuth = session != null;
-      final claims = ref.read(jwtClaimsProvider);
+      final claims = decodeJwtClaims(session?.accessToken);
       final isAdmin = claims['is_admin'] == true;
       final tier = claims['membership_tier'] as String?;
       final loc = state.matchedLocation;
@@ -46,8 +53,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           loc == '/' || loc == '/login' || loc.startsWith('/auth');
 
       if (!isAuth && !isAuthRoute) return '/';
-      if (isAuth && loc == '/') return '/dashboard';
+      if (isAuth && (loc == '/' || loc == '/login')) return '/dashboard';
       if (loc.startsWith('/admin') && !isAdmin) return '/dashboard';
+
+      // Members with an active tier have no business on the tier page.
+      if (isAuth && (tier != null || isAdmin) && loc == '/auth/tier') {
+        return '/dashboard';
+      }
 
       // Authenticated but no active tier (payment pending / lapsed):
       // only tier selection, welcome, and settings are reachable.
@@ -90,10 +102,16 @@ final routerProvider = Provider<GoRouter>((ref) {
               path: '/dashboard', builder: (_, _) => const DashboardPage()),
           GoRoute(
               path: '/positions',
-              builder: (_, _) => const PlaceholderPage(title: 'Positions')),
+              builder: (_, _) =>
+                  const TradesListPage(status: 'in_flight')),
           GoRoute(
               path: '/ideas',
-              builder: (_, _) => const PlaceholderPage(title: 'Ideas')),
+              builder: (_, _) =>
+                  const TradesListPage(status: 'pre_flight')),
+          GoRoute(
+              path: '/trade/:id',
+              builder: (_, state) =>
+                  TradeDetailPage(tradeId: state.pathParameters['id']!)),
           GoRoute(
               path: '/settings',
               builder: (_, _) => const PlaceholderPage(title: 'Settings')),
@@ -101,13 +119,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               path: '/admin/trade',
               builder: (_, _) => const TradeEntryPage()),
           GoRoute(
-              path: '/admin/insights',
-              builder: (_, _) =>
-                  const PlaceholderPage(title: 'Admin · Insights')),
-          GoRoute(
               path: '/admin/invites',
-              builder: (_, _) =>
-                  const PlaceholderPage(title: 'Admin · Invite Codes')),
+              builder: (_, _) => const InvitesPage()),
         ],
       ),
     ],

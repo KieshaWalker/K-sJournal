@@ -1232,12 +1232,15 @@ file:///home/kieshawalk/apps/k-journal/lib/core/providers/auth_provider.dart
 file:///home/kieshawalk/apps/k-journal/lib/core/router.dart
 file:///home/kieshawalk/apps/k-journal/lib/core/supabase_client.dart
 file:///home/kieshawalk/apps/k-journal/lib/core/theme.dart
+file:///home/kieshawalk/apps/k-journal/lib/core/widgets/glossy_card.dart
 file:///home/kieshawalk/apps/k-journal/lib/features/admin/providers/admin_trade_providers.dart
 file:///home/kieshawalk/apps/k-journal/lib/features/admin/trade_entry_page.dart
 file:///home/kieshawalk/apps/k-journal/lib/features/admin/widgets/form_helpers.dart
 file:///home/kieshawalk/apps/k-journal/lib/features/admin/widgets/idea_form.dart
 file:///home/kieshawalk/apps/k-journal/lib/features/admin/widgets/in_flight_form.dart
+file:///home/kieshawalk/apps/k-journal/lib/features/admin/widgets/insight_form.dart
 file:///home/kieshawalk/apps/k-journal/lib/features/admin/widgets/land_form.dart
+file:///home/kieshawalk/apps/k-journal/lib/features/admin/widgets/new_trade_picker.dart
 file:///home/kieshawalk/apps/k-journal/lib/features/admin/widgets/pre_flight_form.dart
 file:///home/kieshawalk/apps/k-journal/lib/features/auth/invite_code_page.dart
 file:///home/kieshawalk/apps/k-journal/lib/features/auth/landing_page.dart

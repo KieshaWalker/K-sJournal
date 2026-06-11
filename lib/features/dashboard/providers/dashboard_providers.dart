@@ -65,13 +65,15 @@ final macroTilesProvider = FutureProvider<List<MacroTile>>((ref) async {
   ];
 });
 
-/// Latest published insight (K's Take).
+/// Latest published macro insight (K's Take). Ticker-scoped insights are
+/// excluded so a single-name note never displaces the market-level take.
 final latestInsightProvider =
     FutureProvider<Map<String, dynamic>?>((ref) async {
   final rows = await supabase
       .from('insights')
       .select('id, title, body, insight_date, market_bias, macro_tags')
       .eq('is_published', true)
+      .eq('scope', 'macro')
       .order('insight_date', ascending: false)
       .limit(1);
   return rows.isEmpty ? null : rows.first;
@@ -83,9 +85,22 @@ final activeTradesProvider =
   return supabase
       .from('trades')
       .select('id, ticker, strategy_type, direction, unrealized_pnl, '
-          'pnl_percent, entry_date')
+          'pnl_percent, entry_date, entry_price, entry_iv_rank, thesis_notes')
       .eq('status', 'in_flight')
       .order('updated_at', ascending: false);
+});
+
+/// Pre-flight ideas for the dashboard summary. RLS returns rows only for
+/// analyst and inner_circle tiers; observers simply get an empty list.
+final preFlightIdeasProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  return supabase
+      .from('trades')
+      .select('id, ticker, strategy_type, direction, thesis_notes, '
+          'entry_iv_rank, tags, created_at')
+      .eq('status', 'pre_flight')
+      .order('created_at', ascending: false)
+      .limit(6);
 });
 
 /// Recently landed trades.

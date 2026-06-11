@@ -101,6 +101,8 @@ ThemeData buildAuthTheme() {
 
 ThemeData buildMemberTheme() {
   final base = ThemeData(brightness: Brightness.light, useMaterial3: true);
+  // Glossy member surface language: rounded corners everywhere below the
+  // nav, soft shadows, gold hairlines. No sharp edges.
   return base.copyWith(
     textTheme: _textTheme(base.textTheme),
     scaffoldBackgroundColor: KColors.memberBgBase,
@@ -109,22 +111,59 @@ ThemeData buildMemberTheme() {
       surface: KColors.memberBgSurface,
       onSurface: KColors.memberTextPrimary,
     ),
-    cardTheme: const CardThemeData(
+    cardTheme: CardThemeData(
       color: KColors.memberBgSurface,
-      elevation: 0,
+      elevation: 3,
+      shadowColor: const Color(0x1F000000),
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        side: BorderSide(color: KColors.memberBorder),
-        borderRadius: BorderRadius.all(Radius.circular(4)),
+        side: const BorderSide(color: Color(0x2EC9A84C)),
+        borderRadius: BorderRadius.circular(16),
       ),
     ),
-    inputDecorationTheme: const InputDecorationTheme(
+    dialogTheme: DialogThemeData(
+      backgroundColor: KColors.memberBgElevated,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
       border: OutlineInputBorder(
-        borderSide: BorderSide(color: KColors.memberBorder),
-        borderRadius: BorderRadius.all(Radius.circular(4)),
+        borderSide: const BorderSide(color: KColors.memberBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: KColors.memberBorder),
+        borderRadius: BorderRadius.circular(12),
       ),
       focusedBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: KColors.accent),
-        borderRadius: BorderRadius.all(Radius.circular(4)),
+        borderSide: const BorderSide(color: KColors.accent),
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: KColors.accent,
+        foregroundColor: Colors.black,
+        elevation: 2,
+        shadowColor: const Color(0x66C9A84C),
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: KColors.memberTextPrimary,
+        side: const BorderSide(color: KColors.accent, width: 0.8),
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: KColors.memberAccentHover,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
     ),
   );

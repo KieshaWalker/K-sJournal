@@ -23,15 +23,18 @@ class SessionNotifier extends Notifier<Session?> {
 /// Custom claims injected by the custom_access_token_hook live at the TOP
 /// LEVEL of the JWT — not in user.appMetadata. Decode the access token to
 /// read them.
-final jwtClaimsProvider = Provider<Map<String, dynamic>>((ref) {
-  final session = ref.watch(sessionProvider);
-  final token = session?.accessToken;
+Map<String, dynamic> decodeJwtClaims(String? token) {
   if (token == null) return const {};
   final parts = token.split('.');
   if (parts.length != 3) return const {};
   final payload =
       utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
   return jsonDecode(payload) as Map<String, dynamic>;
+}
+
+final jwtClaimsProvider = Provider<Map<String, dynamic>>((ref) {
+  final session = ref.watch(sessionProvider);
+  return decodeJwtClaims(session?.accessToken);
 });
 
 final currentUserProvider = Provider<User?>((ref) {

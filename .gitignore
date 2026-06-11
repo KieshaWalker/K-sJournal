@@ -4,3 +4,6 @@ notes
 .env.*
 .vercel
 .env*
+
+# Local Claude Code settings (contains machine-local permission grants)
+.claude/settings.local.json
