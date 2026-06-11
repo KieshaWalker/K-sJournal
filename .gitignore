@@ -7,3 +7,7 @@ notes
 
 # Local Claude Code settings (contains machine-local permission grants)
 .claude/settings.local.json
+
+# Flutter build artifacts
+.dart_tool/
+build/
