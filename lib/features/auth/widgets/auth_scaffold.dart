@@ -21,15 +21,10 @@ class AuthScaffold extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
+                Text(
                   "K's Journal",
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: KColors.accent,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w300,
-                    letterSpacing: 1.2,
-                  ),
+                  style: KFonts.wordmark(KColors.accent),
                 ),
                 const SizedBox(height: 48),
                 ...children,
@@ -60,7 +55,8 @@ class AuthPrimaryButton extends StatelessWidget {
       style: FilledButton.styleFrom(
         backgroundColor: KColors.accent,
         foregroundColor: KColors.authBgBase,
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        shape: const RoundedRectangleBorder(),
       ),
       onPressed: busy ? null : onPressed,
       child: busy
@@ -69,7 +65,10 @@ class AuthPrimaryButton extends StatelessWidget {
               width: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : Text(label),
+          : Text(
+              label.toUpperCase(),
+              style: const TextStyle(fontSize: 12, letterSpacing: 2.5),
+            ),
     );
   }
 }

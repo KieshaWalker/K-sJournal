@@ -112,9 +112,7 @@ class _InsightCard extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(data['title'] as String,
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w500)),
+                Text(data['title'] as String, style: KFonts.heading(size: 22)),
                 const SizedBox(height: 8),
                 Text(
                   data['body'] as String,
@@ -174,29 +172,26 @@ class _MacroTileCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(tile.ticker,
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5)),
+              style: KFonts.data(size: 13, weight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text(
             tile.close == null
                 ? '—'
                 : NumberFormat('#,##0.00').format(tile.close),
-            style: const TextStyle(fontSize: 14),
+            style: KFonts.data(size: 15),
           ),
           const SizedBox(height: 4),
           Text(
             change == null
                 ? '—'
                 : '${change >= 0 ? '▲' : '▼'} ${change.abs().toStringAsFixed(1)}%',
-            style: TextStyle(fontSize: 12, color: color),
+            style: KFonts.data(size: 12, color: color),
           ),
           if (tile.ivRank != null) ...[
             const SizedBox(height: 4),
             Text('IVR ${tile.ivRank!.toStringAsFixed(0)}',
-                style: const TextStyle(
-                    fontSize: 11, color: KColors.memberTextSecondary)),
+                style: KFonts.data(
+                    size: 11, color: KColors.memberTextSecondary)),
           ],
         ],
       ),
@@ -289,8 +284,7 @@ class _TradeRow extends StatelessWidget {
           SizedBox(
             width: 56,
             child: Text(trade['ticker'] as String,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+                style: KFonts.data(size: 13, weight: FontWeight.w600)),
           ),
           Expanded(
             child: Text(_strategyLabel(trade['strategy_type'] as String),
@@ -311,7 +305,7 @@ class _TradeRow extends StatelessWidget {
                 ? '—'
                 : '${pnl >= 0 ? '+' : '−'}\$${pnl.abs().toStringAsFixed(0)}'
                     '${pnlPct == null ? '' : '  ${pnl >= 0 ? '+' : '−'}${pnlPct.abs().toStringAsFixed(0)}%'}',
-            style: TextStyle(fontSize: 13, color: color),
+            style: KFonts.data(size: 13, color: color),
           ),
         ],
       ),

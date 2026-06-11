@@ -14,34 +14,48 @@ class LandingPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
+            Text(
               "K's Journal",
+              style: KFonts.wordmark(KColors.accent).copyWith(fontSize: 44),
+            ),
+            const SizedBox(height: 20),
+            Container(width: 64, height: 1, color: KColors.accent),
+            const SizedBox(height: 20),
+            const Text(
+              'A  P R I V A T E   T R A D I N G   R E C O R D',
               style: TextStyle(
-                color: KColors.accent,
-                fontSize: 18,
-                fontWeight: FontWeight.w300,
-                letterSpacing: 1.2,
+                color: KColors.authTextSecondary,
+                fontSize: 11,
+                letterSpacing: 2,
               ),
             ),
-            const SizedBox(height: 64),
+            const SizedBox(height: 88),
             SizedBox(
-              width: 240,
+              width: 260,
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: KColors.authTextPrimary,
-                  side: const BorderSide(color: KColors.accent),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: const BorderSide(color: KColors.accent, width: 0.8),
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: const RoundedRectangleBorder(),
                 ),
                 onPressed: () => context.go('/login'),
-                child: const Text("I'm a Member"),
+                child: const Text(
+                  "I'M A MEMBER",
+                  style: TextStyle(fontSize: 12, letterSpacing: 2.5),
+                ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             TextButton(
               onPressed: () => context.go('/auth/invite'),
               child: const Text(
-                "New to K's Journal",
-                style: TextStyle(color: KColors.authTextSecondary, fontSize: 13),
+                'I  H A V E   A N   I N V I T A T I O N',
+                style: TextStyle(
+                  color: KColors.authTextSecondary,
+                  fontSize: 11,
+                  letterSpacing: 2,
+                ),
               ),
             ),
           ],

@@ -200,6 +200,12 @@
       "languageVersion": "3.10"
     },
     {
+      "name": "google_fonts",
+      "rootUri": "file:///home/kieshawalk/.pub-cache/hosted/pub.dev/google_fonts-8.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
       "name": "gotrue",
       "rootUri": "file:///home/kieshawalk/.pub-cache/hosted/pub.dev/gotrue-2.21.0",
       "packageUri": "lib/",

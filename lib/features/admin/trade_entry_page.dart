@@ -26,9 +26,7 @@ class TradeEntryPage extends ConsumerWidget {
           children: [
             Row(
               children: [
-                const Text('Trade Workbench',
-                    style:
-                        TextStyle(fontSize: 20, fontWeight: FontWeight.w500)),
+                Text('Trade Workbench', style: KFonts.heading(size: 24)),
                 const Spacer(),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(

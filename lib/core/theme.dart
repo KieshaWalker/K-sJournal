@@ -1,4 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+/// Typography: "Built by money to show you money."
+/// Playfair Display carries the wordmark and headings (old-money serif),
+/// Inter handles body copy, JetBrains Mono handles numbers and tickers.
+abstract final class KFonts {
+  static TextStyle wordmark(Color color) => GoogleFonts.playfairDisplay(
+        color: color,
+        fontSize: 22,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.5,
+      );
+
+  static TextStyle heading({Color? color, double size = 20}) =>
+      GoogleFonts.playfairDisplay(
+        color: color,
+        fontSize: size,
+        fontWeight: FontWeight.w500,
+      );
+
+  /// Monospace for prices, P&L, Greeks, tickers.
+  static TextStyle data(
+          {Color? color, double size = 13, FontWeight? weight}) =>
+      GoogleFonts.jetBrainsMono(color: color, fontSize: size, fontWeight: weight);
+}
+
+TextTheme _textTheme(TextTheme base) =>
+    GoogleFonts.interTextTheme(base).copyWith(
+      displayLarge: GoogleFonts.playfairDisplay(textStyle: base.displayLarge),
+      displayMedium: GoogleFonts.playfairDisplay(textStyle: base.displayMedium),
+      displaySmall: GoogleFonts.playfairDisplay(textStyle: base.displaySmall),
+      headlineLarge: GoogleFonts.playfairDisplay(textStyle: base.headlineLarge),
+      headlineMedium:
+          GoogleFonts.playfairDisplay(textStyle: base.headlineMedium),
+      headlineSmall: GoogleFonts.playfairDisplay(textStyle: base.headlineSmall),
+      titleLarge: GoogleFonts.playfairDisplay(textStyle: base.titleLarge),
+    );
 
 /// Two-theme system:
 /// - Auth shell (landing, invite, register, login): black + gold.
@@ -34,6 +71,7 @@ abstract final class KColors {
 ThemeData buildAuthTheme() {
   final base = ThemeData(brightness: Brightness.dark, useMaterial3: true);
   return base.copyWith(
+    textTheme: _textTheme(base.textTheme),
     scaffoldBackgroundColor: KColors.authBgBase,
     colorScheme: const ColorScheme.dark(
       primary: KColors.accent,
@@ -64,6 +102,7 @@ ThemeData buildAuthTheme() {
 ThemeData buildMemberTheme() {
   final base = ThemeData(brightness: Brightness.light, useMaterial3: true);
   return base.copyWith(
+    textTheme: _textTheme(base.textTheme),
     scaffoldBackgroundColor: KColors.memberBgBase,
     colorScheme: const ColorScheme.light(
       primary: KColors.accent,

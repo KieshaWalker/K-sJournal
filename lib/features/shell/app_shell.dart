@@ -41,14 +41,9 @@ class AppShell extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  const Text(
+                  Text(
                     "K's Journal",
-                    style: TextStyle(
-                      color: KColors.accent,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w300,
-                      letterSpacing: 1.2,
-                    ),
+                    style: KFonts.wordmark(KColors.accent).copyWith(fontSize: 18),
                   ),
                   const SizedBox(width: 48),
                   for (final link in _links)
