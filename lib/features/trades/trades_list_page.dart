@@ -36,7 +36,7 @@ class TradesListPage extends ConsumerWidget {
             children: [
               Text(
                 _isPreFlight ? 'Pre-Flight' : 'In-Flight',
-                style: KFonts.heading(size: 24),
+                style: KFonts.heading(size: 24, color: KColors.white),
               ),
               const SizedBox(height: 4),
               Text(
@@ -45,7 +45,7 @@ class TradesListPage extends ConsumerWidget {
                     : 'Live positions, as K updates them.',
                 style: const TextStyle(
                   fontSize: 13,
-                  color: KColors.memberTextSecondary,
+                  color: KColors.memberAccent,
                 ),
               ),
               const SizedBox(height: 24),

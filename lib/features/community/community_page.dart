@@ -34,21 +34,21 @@ class CommunityPage extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Community', style: KFonts.heading(size: 24)),
+                        Text('Community', style: KFonts.heading(size: 24, color: KColors.white)),
                         const SizedBox(height: 4),
                         const Text(
                           'The room. Invitation only.',
                           style: TextStyle(
                             fontSize: 13,
-                            color: KColors.memberTextSecondary,
+                            color: KColors.memberAccent,
                           ),
                         ),
                       ],
                     ),
                   ),
                   OutlinedButton.icon(
-                    icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: const Text('Edit My Profile'),
+                    icon: const Icon(Icons.edit_outlined, size: 18, color: KColors.accent),
+                    label: const Text('Edit My Profile', style: TextStyle(color: KColors.accent)),
                     onPressed: () {
                       final mine = profiles.value?.where(
                         (p) => p['id'] == myId,
@@ -97,24 +97,24 @@ class CommunityPage extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'MOST ACTIVE',
+                        'Members',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1.5,
-                          color: KColors.memberAccentHover,
+                          color: KColors.memberAccent,
                         ),
                       ),
                       const SizedBox(height: 12),
                       _ActiveRail(profiles: byActivity, myId: myId),
                       const SizedBox(height: 28),
-                      Text('The Floor', style: KFonts.heading(size: 20)),
+                      Text('The Floor', style: KFonts.heading(size: 20, color: KColors.white)),
                       const SizedBox(height: 4),
                       const Text(
-                        'Open talk between members.',
+                        'Open posts between members.',
                         style: TextStyle(
                           fontSize: 13,
-                          color: KColors.memberTextSecondary,
+                          color: KColors.memberAccent,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -150,9 +150,7 @@ class _ActiveRail extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(width: 16),
         itemBuilder: (context, i) {
           final p = profiles[i];
-          final username = p['username'] as String? ?? 'member';
-          final name = (p['display_name'] as String?)?.trim();
-          final display = name?.isNotEmpty == true ? name! : '@$username';
+          final display = memberDisplayName(p);
           final isHost = p['is_admin'] == true;
           return InkWell(
             borderRadius: BorderRadius.circular(12),
@@ -185,7 +183,7 @@ class _ActiveRail extends StatelessWidget {
                       ),
                       child: MemberAvatar(
                         url: p['avatar_url'] as String?,
-                        fallbackInitial: username[0].toUpperCase(),
+                        fallbackInitial: memberInitial(p),
                         size: 54,
                       ),
                     ),
@@ -208,7 +206,7 @@ class _ActiveRail extends StatelessWidget {
                         fontSize: 8.5,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1,
-                        color: KColors.memberAccentHover,
+                        color: KColors.memberAccent,
                       ),
                     ),
                 ],
@@ -231,7 +229,6 @@ class _ProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = profile;
     final username = p['username'] as String? ?? 'member';
-    final name = (p['display_name'] as String?)?.trim();
     final bio = (p['bio'] as String?)?.trim();
     final location = (p['location'] as String?)?.trim();
     final age = p['age'] as int?;
@@ -252,9 +249,7 @@ class _ProfileCard extends StatelessWidget {
             children: [
               MemberAvatar(
                 url: p['avatar_url'] as String?,
-                fallbackInitial:
-                    (name?.isNotEmpty == true ? name! : username)[0]
-                        .toUpperCase(),
+                fallbackInitial: memberInitial(p),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -262,7 +257,7 @@ class _ProfileCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name?.isNotEmpty == true ? name! : '@$username',
+                      memberDisplayName(p),
                       style: KFonts.heading(size: 17),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -343,7 +338,7 @@ class _TierBadge extends StatelessWidget {
           fontSize: 9,
           fontWeight: FontWeight.w600,
           letterSpacing: 1,
-          color: KColors.memberAccentHover,
+          color: KColors.memberAccent,
         ),
       ),
     );

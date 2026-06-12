@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/supabase_client.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/photo_attach.dart';
 import '../providers/admin_trade_providers.dart';
 import 'form_helpers.dart';
 
@@ -36,6 +37,8 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
   final _vega = TextEditingController();
   final _iv = TextEditingController(text: '');
   final _legs = <_LegInput>[_LegInput()];
+  final _photo = PhotoAttachController();
+  bool _imageCleared = false;
   String? _error;
   bool _busy = false;
 
@@ -136,6 +139,7 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
             'entry_price': parseNum(_legs[i].fill),
           }
       ]);
+      final imageUrl = _photo.hasPhoto ? await _photo.upload() : null;
       await supabase.from('trades').update({
         'status': 'in_flight',
         'entry_date': _entryDate.text.trim(),
@@ -148,6 +152,10 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
         'entry_theta': parseNum(_theta),
         'entry_vega': parseNum(_vega),
         'entry_iv': parseNum(_iv) ?? widget.trade['entry_iv'],
+        if (imageUrl != null)
+          'image_url': imageUrl
+        else if (_imageCleared)
+          'image_url': null,
       }).eq('id', tradeId);
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
@@ -251,6 +259,24 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
           ),
         ]),
         for (var i = 0; i < _legs.length; i++) _legRow(i),
+        const SizedBox(height: 8),
+        Row(children: [
+          PhotoAttachField(
+            controller: _photo,
+            existingUrl: _imageCleared
+                ? null
+                : widget.trade['image_url'] as String?,
+            onCleared: () => setState(() => _imageCleared = true),
+          ),
+          const SizedBox(width: 4),
+          const Text(
+            'Attach a chart or photo (optional)',
+            style: TextStyle(
+              fontSize: 12,
+              color: KColors.memberTextSecondary,
+            ),
+          ),
+        ]),
       ],
     );
   }

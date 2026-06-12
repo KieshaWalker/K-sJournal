@@ -12,6 +12,31 @@ final adminTradesProvider =
       .order('updated_at', ascending: false);
 });
 
+/// Insights newest-first for the workbench — drafts included, so K can
+/// delete or audit anything members can't see yet.
+final adminInsightsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final rows = await supabase
+      .from('insights')
+      .select('id, title, body, insight_date, scope, ticker, market_bias, '
+          'macro_tags, is_published, published_at, image_url')
+      .order('insight_date', ascending: false)
+      .order('created_at', ascending: false)
+      .limit(15);
+  return List<Map<String, dynamic>>.from(rows);
+});
+
+/// K's private scratchpad, most recently touched first. Admin-only RLS —
+/// members have no read path to this table at all.
+final adminNotesProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final rows = await supabase
+      .from('admin_notes')
+      .select('*')
+      .order('updated_at', ascending: false);
+  return List<Map<String, dynamic>>.from(rows);
+});
+
 /// Recently landed, for reference at the bottom of the workbench.
 final adminLandedProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {

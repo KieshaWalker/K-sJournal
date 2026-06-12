@@ -1,23 +1,35 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/supabase_client.dart';
+import '../../../core/theme.dart';
+import '../../../core/widgets/photo_attach.dart';
 import 'form_helpers.dart';
 
 class InsightFormDialog extends StatefulWidget {
-  const InsightFormDialog({super.key});
+  const InsightFormDialog({super.key, this.insight});
+
+  /// When set, the dialog edits this insight in place; otherwise it
+  /// creates a new one dated today.
+  final Map<String, dynamic>? insight;
 
   @override
   State<InsightFormDialog> createState() => _InsightFormDialogState();
 }
 
 class _InsightFormDialogState extends State<InsightFormDialog> {
-  final _ticker = TextEditingController();
-  final _title = TextEditingController();
-  final _body = TextEditingController();
-  final _tags = TextEditingController();
-  String _scope = 'ticker';
-  String? _bias;
-  bool _publish = true;
+  late final _ticker = TextEditingController(
+      text: (widget.insight?['ticker'] as String?) ?? '');
+  late final _title = TextEditingController(
+      text: (widget.insight?['title'] as String?) ?? '');
+  late final _body = TextEditingController(
+      text: (widget.insight?['body'] as String?) ?? '');
+  late final _tags = TextEditingController(
+      text: (widget.insight?['macro_tags'] as List?)?.join(', ') ?? '');
+  late String _scope = (widget.insight?['scope'] as String?) ?? 'ticker';
+  late String? _bias = widget.insight?['market_bias'] as String?;
+  late bool _publish = (widget.insight?['is_published'] as bool?) ?? true;
+  final _photo = PhotoAttachController();
+  bool _imageCleared = false;
   String? _error;
   bool _busy = false;
 
@@ -41,11 +53,8 @@ class _InsightFormDialogState extends State<InsightFormDialog> {
     });
     try {
       final now = DateTime.now();
-      await supabase.from('insights').insert({
-        'author_id': supabase.auth.currentUser!.id,
-        'insight_date': '${now.year}'
-            '-${now.month.toString().padLeft(2, '0')}'
-            '-${now.day.toString().padLeft(2, '0')}',
+      final imageUrl = _photo.hasPhoto ? await _photo.upload() : null;
+      final payload = {
         'scope': _scope,
         'ticker': _scope == 'ticker' ? ticker : null,
         'title': _title.text.trim(),
@@ -55,8 +64,35 @@ class _InsightFormDialogState extends State<InsightFormDialog> {
             ? null
             : _tags.text.split(',').map((t) => t.trim()).toList(),
         'is_published': _publish,
-        'published_at': _publish ? now.toUtc().toIso8601String() : null,
-      });
+      };
+      if (imageUrl != null) {
+        payload['image_url'] = imageUrl;
+      } else if (_imageCleared) {
+        payload['image_url'] = null;
+      }
+      final existing = widget.insight;
+      if (existing == null) {
+        await supabase.from('insights').insert({
+          ...payload,
+          'author_id': supabase.auth.currentUser!.id,
+          'insight_date': '${now.year}'
+              '-${now.month.toString().padLeft(2, '0')}'
+              '-${now.day.toString().padLeft(2, '0')}',
+          'published_at': _publish ? now.toUtc().toIso8601String() : null,
+        });
+      } else {
+        // Keep the original date; stamp published_at on first publish and
+        // clear it when pulled back to draft.
+        if (!_publish) {
+          payload['published_at'] = null;
+        } else if (existing['published_at'] == null) {
+          payload['published_at'] = now.toUtc().toIso8601String();
+        }
+        await supabase
+            .from('insights')
+            .update(payload)
+            .eq('id', existing['id'] as String);
+      }
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
       setState(() => _error = 'Save failed: $e');
@@ -68,8 +104,12 @@ class _InsightFormDialogState extends State<InsightFormDialog> {
   @override
   Widget build(BuildContext context) {
     return FormDialogShell(
-      title: 'New Insight',
-      submitLabel: _publish ? 'Publish Insight' : 'Save Draft',
+      title: widget.insight == null ? 'New Insight' : 'Edit Insight',
+      submitLabel: widget.insight != null
+          ? 'Save Changes'
+          : _publish
+              ? 'Publish Insight'
+              : 'Save Draft',
       onSubmit: _save,
       error: _error,
       busy: _busy,
@@ -125,6 +165,24 @@ class _InsightFormDialogState extends State<InsightFormDialog> {
             helperText: 'Comma-separated: rates, ai_capex, energy',
           ),
         ),
+        const SizedBox(height: 8),
+        Row(children: [
+          PhotoAttachField(
+            controller: _photo,
+            existingUrl: _imageCleared
+                ? null
+                : widget.insight?['image_url'] as String?,
+            onCleared: () => setState(() => _imageCleared = true),
+          ),
+          const SizedBox(width: 4),
+          const Text(
+            'Attach a chart or photo (optional)',
+            style: TextStyle(
+              fontSize: 12,
+              color: KColors.memberTextSecondary,
+            ),
+          ),
+        ]),
         const SizedBox(height: 8),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,

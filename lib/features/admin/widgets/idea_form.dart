@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/supabase_client.dart';
+import '../../../core/theme.dart';
+import '../../../core/widgets/photo_attach.dart';
 import '../providers/admin_trade_providers.dart';
 import 'form_helpers.dart';
 
@@ -15,6 +17,7 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
   final _ticker = TextEditingController();
   final _thesis = TextEditingController();
   final _tags = TextEditingController();
+  final _photo = PhotoAttachController();
   String _direction = 'bearish';
   String _strategy = 'put_spread';
   String? _error;
@@ -35,6 +38,7 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
       _error = null;
     });
     try {
+      final imageUrl = _photo.hasPhoto ? await _photo.upload() : null;
       await supabase.from('trades').insert({
         'ticker': ticker,
         'direction': _direction,
@@ -44,6 +48,7 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
         'tags': _tags.text.trim().isEmpty
             ? null
             : _tags.text.split(',').map((t) => t.trim()).toList(),
+        'image_url': ?imageUrl,
       });
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
@@ -105,6 +110,18 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
             helperText: 'Comma-separated: earnings, tech, high_iv',
           ),
         ),
+        const SizedBox(height: 8),
+        Row(children: [
+          PhotoAttachField(controller: _photo),
+          const SizedBox(width: 4),
+          const Text(
+            'Attach a chart or photo (optional)',
+            style: TextStyle(
+              fontSize: 12,
+              color: KColors.memberTextSecondary,
+            ),
+          ),
+        ]),
       ],
     );
   }

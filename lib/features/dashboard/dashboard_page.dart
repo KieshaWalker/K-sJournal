@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/glossy_card.dart';
+import '../../core/widgets/photo_attach.dart';
 import '../trades/widgets/comment_counts.dart';
 import 'providers/dashboard_providers.dart';
 
@@ -32,7 +33,7 @@ class DashboardPage extends ConsumerWidget {
                         children: [
                           _SectionLabel('Insights'),
                           SizedBox(height: 12),
-                          _InsightCard(),
+                          _InsightsFeed(),
                         ],
                       ),
                     ),
@@ -76,7 +77,7 @@ class _SectionLabel extends StatelessWidget {
             fontSize: 11,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.5,
-            color: KColors.memberTextSecondary,
+            color: KColors.memberAccent,
           ),
         ),
       ],
@@ -157,17 +158,122 @@ class _RevealState extends State<_Reveal> {
   }
 }
 
-// ---- K's Take (expandable) ----
+// ---- K's Take (scrollable feed, each entry expandable) ----
 
-class _InsightCard extends ConsumerStatefulWidget {
-  const _InsightCard();
+class _InsightsFeed extends ConsumerWidget {
+  const _InsightsFeed();
 
   @override
-  ConsumerState<_InsightCard> createState() => _InsightCardState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final insights = ref.watch(insightsFeedProvider);
+    return insights.when(
+      loading: () => const SizedBox(
+        height: 120,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) =>
+          const _MessageCard('Could not load insights.', color: KColors.negative),
+      data: (rows) {
+        if (rows.isEmpty) {
+          return const _MessageCard('No insight published yet.');
+        }
+        // Grows with content up to the cap, then the feed scrolls — keeps
+        // the slot level with Macro Pulse no matter how much K writes.
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 420),
+          child: GlossyCard(
+            padding: EdgeInsets.zero,
+            hoverLift: false,
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              itemCount: rows.length,
+              separatorBuilder: (_, _) => Container(
+                height: 1,
+                decoration: const BoxDecoration(gradient: KGold.hairline),
+              ),
+              itemBuilder: (_, i) => _InsightTile(insight: rows[i]),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
-class _InsightCardState extends ConsumerState<_InsightCard> {
+class _InsightTile extends StatefulWidget {
+  const _InsightTile({required this.insight});
+
+  final Map<String, dynamic> insight;
+
+  @override
+  State<_InsightTile> createState() => _InsightTileState();
+}
+
+class _InsightTileState extends State<_InsightTile> {
   bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final i = widget.insight;
+    final date = DateTime.parse(i['insight_date'] as String);
+    final bias = i['market_bias'] as String?;
+    final ticker = i['scope'] == 'ticker' ? i['ticker'] as String? : null;
+    return InkWell(
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  DateFormat('MMM d, yyyy').format(date),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                    color: KColors.memberTextSecondary,
+                  ),
+                ),
+                if (ticker != null) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    ticker.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1,
+                      color: KColors.memberAccent,
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                if (bias != null) _BiasChip(bias: bias),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(i['title'] as String, style: KFonts.heading(size: 16)),
+            const SizedBox(height: 4),
+            Text(
+              i['body'] as String,
+              maxLines: _expanded ? null : 2,
+              overflow: _expanded ? null : TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, height: 1.55),
+            ),
+            if (_expanded && (i['image_url'] as String?)?.isNotEmpty == true)
+              AttachedPhoto(url: i['image_url'] as String, maxHeight: 260),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BiasChip extends StatelessWidget {
+  const _BiasChip({required this.bias});
+
+  final String bias;
 
   static const _biasColors = {
     'bullish': KColors.positive,
@@ -178,81 +284,23 @@ class _InsightCardState extends ConsumerState<_InsightCard> {
 
   @override
   Widget build(BuildContext context) {
-    final insight = ref.watch(latestInsightProvider);
-    return insight.when(
-      loading: () => const SizedBox(
-        height: 120,
-        child: Center(child: CircularProgressIndicator()),
+    final color = _biasColors[bias] ?? KColors.neutral;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
-      error: (e, _) =>
-          const _MessageCard('Could not load insight.', color: KColors.negative),
-      data: (data) {
-        if (data == null) {
-          return const _MessageCard('No insight published yet.');
-        }
-        final date = DateTime.parse(data['insight_date'] as String);
-        final bias = data['market_bias'] as String?;
-        return GlossyCard(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    _SectionLabel(
-                      "K's Take — ${DateFormat('MMMM d, yyyy').format(date)}",
-                    ),
-                    const Spacer(),
-                    if (bias != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: (_biasColors[bias] ?? KColors.neutral)
-                              .withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: (_biasColors[bias] ?? KColors.neutral)
-                                .withValues(alpha: 0.35),
-                          ),
-                        ),
-                        child: Text(
-                          bias.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.5,
-                            color: _biasColors[bias] ?? KColors.neutral,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(data['title'] as String, style: KFonts.heading(size: 22)),
-                const SizedBox(height: 8),
-                Text(
-                  data['body'] as String,
-                  maxLines: _expanded ? null : 3,
-                  overflow: _expanded ? null : TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, height: 1.6),
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
-                    size: 18,
-                    color: KColors.memberTextSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      child: Text(
+        bias.toUpperCase(),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.5,
+          color: color,
+        ),
+      ),
     );
   }
 }
@@ -442,7 +490,7 @@ class _IdeaCardState extends State<_IdeaCard> {
                         child: Text(tag,
                             style: const TextStyle(
                                 fontSize: 11,
-                                color: KColors.memberAccentHover)),
+                                color: KColors.memberAccent)),
                       ),
                   ],
                 ),

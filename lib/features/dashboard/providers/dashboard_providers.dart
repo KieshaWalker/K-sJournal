@@ -29,19 +29,28 @@ final macroTilesProvider = FutureProvider<List<MacroTile>>((ref) async {
   final tickers = [for (final w in watchlist) w['ticker'] as String];
   if (tickers.isEmpty) return const [];
 
+  // A recent-days window rather than a row limit: tables now hold full
+  // history per ticker, and a laggard like a ticker last snapped two days
+  // ago must not be crowded out by fresher tickers' rows.
+  final cutoff = DateTime.now()
+      .subtract(const Duration(days: 14))
+      .toIso8601String()
+      .split('T')
+      .first;
+
   final snapshots = await supabase
       .from('market_snapshots')
       .select('ticker, snapshot_date, close, price_change_pct')
       .inFilter('ticker', tickers)
-      .order('snapshot_date', ascending: false)
-      .limit(tickers.length * 2);
+      .gte('snapshot_date', cutoff)
+      .order('snapshot_date', ascending: false);
 
   final vol = await supabase
       .from('volatility_data')
       .select('ticker, snapshot_date, iv_rank')
       .inFilter('ticker', tickers)
-      .order('snapshot_date', ascending: false)
-      .limit(tickers.length * 2);
+      .gte('snapshot_date', cutoff)
+      .order('snapshot_date', ascending: false);
 
   final latestSnap = <String, Map<String, dynamic>>{};
   for (final s in snapshots) {
@@ -65,18 +74,21 @@ final macroTilesProvider = FutureProvider<List<MacroTile>>((ref) async {
   ];
 });
 
-/// Latest published macro insight (K's Take). Ticker-scoped insights are
-/// excluded so a single-name note never displaces the market-level take.
-final latestInsightProvider =
-    FutureProvider<Map<String, dynamic>?>((ref) async {
+/// Published insights newest-first — macro takes and ticker notes alike.
+/// The dashboard shows them as one scrollable feed, so a single-name note
+/// no longer displaces the market-level take; the limit keeps the first
+/// paint light.
+final insightsFeedProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final rows = await supabase
       .from('insights')
-      .select('id, title, body, insight_date, market_bias, macro_tags')
+      .select('id, title, body, insight_date, market_bias, macro_tags, '
+          'scope, ticker, image_url')
       .eq('is_published', true)
-      .eq('scope', 'macro')
       .order('insight_date', ascending: false)
-      .limit(1);
-  return rows.isEmpty ? null : rows.first;
+      .order('created_at', ascending: false)
+      .limit(20);
+  return List<Map<String, dynamic>>.from(rows);
 });
 
 /// In-flight trades for the active positions summary.

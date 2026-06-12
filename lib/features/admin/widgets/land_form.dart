@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/supabase_client.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/photo_attach.dart';
 import '../providers/admin_trade_providers.dart';
 import 'form_helpers.dart';
 
@@ -19,6 +20,8 @@ class _LandFormDialogState extends State<LandFormDialog> {
       text: DateTime.now().toIso8601String().split('T')[0]);
   final _exitPrice = TextEditingController();
   final _exitNotes = TextEditingController();
+  final _photo = PhotoAttachController();
+  bool _imageCleared = false;
   String? _outcomeOverride;
   String? _error;
   bool _busy = false;
@@ -61,6 +64,7 @@ class _LandFormDialogState extends State<LandFormDialog> {
       _error = null;
     });
     try {
+      final imageUrl = _photo.hasPhoto ? await _photo.upload() : null;
       await supabase.from('trades').update({
         'status': 'landed',
         'exit_date': _exitDate.text.trim(),
@@ -70,6 +74,10 @@ class _LandFormDialogState extends State<LandFormDialog> {
         'outcome': _outcomeOverride ?? _autoOutcome(calc.pct),
         'exit_notes':
             _exitNotes.text.trim().isEmpty ? null : _exitNotes.text.trim(),
+        if (imageUrl != null)
+          'image_url': imageUrl
+        else if (_imageCleared)
+          'image_url': null,
       }).eq('id', widget.trade['id'] as String);
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
@@ -164,6 +172,24 @@ class _LandFormDialogState extends State<LandFormDialog> {
                 'immutable after landing.',
           ),
         ),
+        const SizedBox(height: 8),
+        Row(children: [
+          PhotoAttachField(
+            controller: _photo,
+            existingUrl: _imageCleared
+                ? null
+                : widget.trade['image_url'] as String?,
+            onCleared: () => setState(() => _imageCleared = true),
+          ),
+          const SizedBox(width: 4),
+          const Text(
+            'Attach the exit chart (optional)',
+            style: TextStyle(
+              fontSize: 12,
+              color: KColors.memberTextSecondary,
+            ),
+          ),
+        ]),
       ],
     );
   }

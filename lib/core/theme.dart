@@ -11,12 +11,11 @@ abstract final class KGold {
     begin: Alignment.bottomLeft,
     end: Alignment.topRight,
     colors: [
-      Color(0xFFC9A84C), // house gold
       Color(0xFF8F7430), // bronze shadow
       Color(0xFFF2DEA0), // champagne highlight
-
+      Color(0xFFC9A84C) // house gold
     ],
-    stops: [.550, 0.75, 1.0],
+    stops: [0.0, 0.55, 1.0],
   );
 
   /// Hairline that dissolves to nothing — for section rules.
@@ -36,13 +35,13 @@ abstract final class KShadows {
 
   /// Wordmark — larger type carries a deeper shadow.
   static const wordmark = [
-    Shadow(color: Color(0x40000000), offset: Offset(0, 0), blurRadius: 1),
+    Shadow(color: Color(0x90000000), offset: Offset(0, 1), blurRadius: 1),
   ];
 }
 
 abstract final class KFonts {
   static TextStyle wordmark(Color color) => GoogleFonts.playfairDisplay(
-        color: color,
+        color: color, // this color is coming from the parent widget's shader mask
         fontSize: 22,
         fontWeight: FontWeight.w500,
         letterSpacing: 0.5,
@@ -85,6 +84,9 @@ abstract final class KColors {
   static const neutral = Color(0xFF7F8C8D);
   static const pending = Color(0xFFD4A017);
 
+  static const white = Color(0xFFFFFFFF);
+  static const black = Color(0xFF000000);
+
   // Auth (black) theme
   static const authBgBase = Color(0xFF000000);
   static const authBgSurface = Color(0xFF0A0A0A);
@@ -99,9 +101,9 @@ abstract final class KColors {
   static const memberBgSurface = Color(0xFFFFFDF8);
   static const memberBgElevated = Color(0xFFFFFFFF);
   static const memberBorder = Color(0x14000000); // black @ 8%
-  static const memberTextPrimary = Color(0xFF1A1A1A);
+  static const memberTextPrimary = Color(0xFF1A1A5A);
   static const memberTextSecondary = Color(0xFF6B6558);
-  static const memberAccentHover = Color(0xFFB5933D);
+  static const memberAccent = Color(0xFFB5933D);
 }
 
 ThemeData buildAuthTheme() {
@@ -196,7 +198,7 @@ ThemeData buildMemberTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: KColors.memberAccentHover,
+        foregroundColor: KColors.memberAccent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),

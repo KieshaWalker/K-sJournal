@@ -7,6 +7,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/glossy_card.dart';
+import '../../core/widgets/photo_attach.dart';
 import 'providers/trade_providers.dart';
 import 'trades_list_page.dart';
 
@@ -137,6 +138,10 @@ class _TradeDetail extends StatelessWidget {
                   style: const TextStyle(fontSize: 14, height: 1.6),
                 ),
               ],
+              if ((t['image_url'] as String?)?.isNotEmpty ?? false) ...[
+                const SizedBox(height: 14),
+                AttachedPhoto(url: t['image_url'] as String, maxHeight: 420),
+              ],
               if (tags.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 Wrap(
@@ -155,7 +160,7 @@ class _TradeDetail extends StatelessWidget {
                           tag,
                           style: const TextStyle(
                             fontSize: 11,
-                            color: KColors.memberAccentHover,
+                            color: KColors.memberAccent,
                           ),
                         ),
                       ),
@@ -492,7 +497,7 @@ class _DiscussionCardState extends ConsumerState<_DiscussionCard> {
             },
             orElse: () => const _Label('Discussion'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           thread.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => const Text(
@@ -523,40 +528,49 @@ class _DiscussionCardState extends ConsumerState<_DiscussionCard> {
           ),
           const SizedBox(height: 16),
           if (canPost) ...[
+            Container(
+              height: 1,
+              decoration: const BoxDecoration(gradient: KGold.hairline),
+            ),
+            const SizedBox(height: 10),
             TextField(
               controller: _body,
-              maxLines: 3,
+              maxLines: 4,
               minLines: 1,
               maxLength: 2000,
+              style: const TextStyle(fontSize: 14, height: 1.45),
               decoration: const InputDecoration(
                 hintText: 'Add a comment or ask K a question…',
                 counterText: '',
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(
               children: [
-                Switch(
-                  value: _isQuestion,
-                  onChanged: (v) => setState(() => _isQuestion = v),
+                _QuestionChip(
+                  selected: _isQuestion,
+                  onTap: () => setState(() => _isQuestion = !_isQuestion),
                 ),
-                const SizedBox(width: 6),
-                const Text('Ask as a question',
-                    style: TextStyle(fontSize: 12)),
                 const Spacer(),
                 FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: KColors.accent,
-                    foregroundColor: Colors.black,
+                  style: glossyPrimaryButton().copyWith(
+                    padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+                    ),
                   ),
                   onPressed: _busy ? null : _post,
                   child: _busy
                       ? const SizedBox(
-                          height: 16,
-                          width: 16,
+                          height: 14,
+                          width: 14,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Post'),
+                      : const Text('Post', style: TextStyle(fontSize: 13)),
                 ),
               ],
             ),
@@ -575,6 +589,50 @@ class _DiscussionCardState extends ConsumerState<_DiscussionCard> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// The question toggle as a quiet pill instead of a full Material switch —
+/// gold when armed, hairline when not.
+class _QuestionChip extends StatelessWidget {
+  const _QuestionChip({required this.selected, required this.onTap});
+
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        selected ? KColors.memberAccent : KColors.memberTextSecondary;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: selected ? const Color(0x14C9A84C) : null,
+          border: Border.all(
+            color: selected ? const Color(0x59C9A84C) : KColors.memberBorder,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.help_outline, size: 13, color: color),
+            const SizedBox(width: 5),
+            Text(
+              'Question for K',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: color,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -677,7 +735,7 @@ class _CommentTileState extends ConsumerState<_CommentTile> {
                 style: KFonts.data(
                   size: 12,
                   weight: FontWeight.w600,
-                  color: KColors.memberAccentHover,
+                  color: KColors.memberAccent,
                 ),
               ),
               const SizedBox(width: 8),
@@ -695,7 +753,7 @@ class _CommentTileState extends ConsumerState<_CommentTile> {
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1,
-                      color: KColors.memberAccentHover,
+                      color: KColors.memberAccent,
                     ),
                   ),
                 ),

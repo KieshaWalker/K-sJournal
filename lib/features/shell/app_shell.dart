@@ -107,7 +107,7 @@ class AppShell extends ConsumerWidget {
                                 fontSize: 11,
                                 letterSpacing: 1.5,
                                 fontWeight: FontWeight.w600,
-                                color: KColors.memberAccentHover,
+                                color: KColors.memberAccent,
                               ),
                             ),
                           ),

@@ -4,13 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme.dart';
 import '../dashboard/providers/dashboard_providers.dart';
+import '../trades/providers/trade_providers.dart';
 import 'providers/admin_trade_providers.dart';
+import 'widgets/edit_position_form.dart';
 import 'widgets/idea_form.dart';
 import 'widgets/in_flight_form.dart';
 import 'widgets/insight_form.dart';
 import 'widgets/land_form.dart';
 import 'widgets/new_trade_picker.dart';
 import 'widgets/pre_flight_form.dart';
+import 'widgets/pull_market_data_button.dart';
+import 'widgets/working_notes.dart';
 
 class TradeEntryPage extends ConsumerWidget {
   const TradeEntryPage({super.key});
@@ -30,20 +34,26 @@ class TradeEntryPage extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Text('Trade Workbench', style: KFonts.heading(size: 24)),
+                  Text('Trade Workbench',
+                      style: KFonts.heading(size: 24, color: Colors.white)),
                   const Spacer(),
+                  const PullMarketDataButton(),
+                  const SizedBox(width: 8),
                   OutlinedButton.icon(
-                    icon: const Icon(Icons.lightbulb_outline, size: 18),
-                    label: const Text('New Insight'),
+                    icon: const Icon(Icons.lightbulb_outline, size: 18, color: KColors.accent),
+                    label: const Text('New Insight', style: TextStyle(color: KColors.accent)), 
                     onPressed: () => showDialog(
                       context: context,
                       builder: (_) => const InsightFormDialog(),
-                    ).then((_) => ref.invalidate(latestInsightProvider)),
+                    ).then((_) {
+                      ref.invalidate(insightsFeedProvider);
+                      ref.invalidate(adminInsightsProvider);
+                    }),
                   ),
                   const SizedBox(width: 8),
                   OutlinedButton.icon(
-                    icon: const Icon(Icons.flight_takeoff, size: 18),
-                    label: const Text('New Trade'),
+                    icon: const Icon(Icons.flight_takeoff, size: 18, color: KColors.accent),
+                    label: const Text('New Trade', style: TextStyle(color: KColors.accent)),
                     onPressed: () => showDialog<Map<String, dynamic>>(
                       context: context,
                       builder: (_) => const NewTradePickerDialog(),
@@ -63,8 +73,8 @@ class TradeEntryPage extends ConsumerWidget {
                       backgroundColor: KColors.accent,
                       foregroundColor: Colors.black,
                     ),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Idea'),
+                    icon: const Icon(Icons.add, size: 18, color: Colors.black),
+                    label: const Text('New Idea', style: TextStyle(color: Colors.black)),
                     onPressed: () => showDialog(
                       context: context,
                       builder: (_) => const IdeaFormDialog(),
@@ -118,6 +128,11 @@ class TradeEntryPage extends ConsumerWidget {
                         actionLabel: 'Close Trade →',
                         onAction: (t) =>
                             _openDialog(context, ref, LandFormDialog(trade: t)),
+                        onEdit: (t) => _openDialog(
+                          context,
+                          ref,
+                          EditPositionDialog(trade: t),
+                        ),
                       ),
                     ],
                   );
@@ -130,7 +145,7 @@ class TradeEntryPage extends ConsumerWidget {
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.5,
-                  color: KColors.memberTextSecondary,
+                  color: KColors.white,
                 ),
               ),
               const SizedBox(height: 12),
@@ -178,6 +193,10 @@ class TradeEntryPage extends ConsumerWidget {
                       ),
                 orElse: () => const SizedBox.shrink(),
               ),
+              const SizedBox(height: 32),
+              const _InsightsSection(),
+              const SizedBox(height: 32),
+              const WorkingNotesSection(),
             ],
           ),
         ),
@@ -198,7 +217,14 @@ class TradeEntryPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (_) => dialog,
-    ).then((_) => ref.invalidate(adminTradesProvider));
+    ).then((_) {
+      ref.invalidate(adminTradesProvider);
+      ref.invalidate(activeTradesProvider);
+      ref.invalidate(inFlightTradesProvider);
+      ref.invalidate(preFlightTradesProvider);
+      ref.invalidate(tradeDetailProvider);
+      ref.invalidate(tradeLegsProvider);
+    });
   }
 }
 
@@ -209,6 +235,7 @@ class _StatusSection extends ConsumerWidget {
     required this.emptyText,
     required this.actionLabel,
     required this.onAction,
+    this.onEdit,
   });
 
   final String title;
@@ -216,6 +243,7 @@ class _StatusSection extends ConsumerWidget {
   final String emptyText;
   final String actionLabel;
   final void Function(Map<String, dynamic>) onAction;
+  final void Function(Map<String, dynamic>)? onEdit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -274,6 +302,12 @@ class _StatusSection extends ConsumerWidget {
                               icon: const Icon(Icons.delete_outline, size: 18),
                               onPressed: () => _confirmDelete(context, ref, t),
                             ),
+                          if (onEdit != null)
+                            IconButton(
+                              tooltip: 'Edit position',
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              onPressed: () => onEdit!(t),
+                            ),
                           TextButton(
                             onPressed: () => onAction(t),
                             child: Text(
@@ -326,6 +360,138 @@ class _StatusSection extends ConsumerWidget {
     if (ok == true) {
       await supabase.from('trades').delete().eq('id', t['id'] as String);
       ref.invalidate(adminTradesProvider);
+    }
+  }
+}
+
+/// Every insight, drafts included, with the only control members never
+/// get: delete. Removing one takes it off the dashboard feed immediately.
+class _InsightsSection extends ConsumerWidget {
+  const _InsightsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final insights = ref.watch(adminInsightsProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'INSIGHTS',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.5,
+            color: KColors.memberTextSecondary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        insights.maybeWhen(
+          data: (rows) => rows.isEmpty
+              ? const Text(
+                  'None yet.',
+                  style: TextStyle(
+                    color: KColors.memberTextSecondary,
+                    fontSize: 13,
+                  ),
+                )
+              : Card(
+                  child: Column(
+                    children: [
+                      for (final i in rows)
+                        ListTile(
+                          dense: true,
+                          leading: Icon(
+                            i['is_published'] == true
+                                ? Icons.circle
+                                : Icons.circle_outlined,
+                            size: 8,
+                            color: i['is_published'] == true
+                                ? KColors.accent
+                                : KColors.neutral,
+                          ),
+                          title: Text(
+                            i['title'] as String? ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          subtitle: Text(
+                            [
+                              i['insight_date'] as String? ?? '',
+                              if (i['scope'] == 'ticker')
+                                (i['ticker'] as String? ?? '').toUpperCase()
+                              else
+                                'macro',
+                              if (i['market_bias'] != null)
+                                i['market_bias'] as String,
+                              if (i['is_published'] != true) 'draft',
+                            ].join('  ·  '),
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: 'Edit insight',
+                                icon: const Icon(Icons.edit_outlined, size: 18),
+                                onPressed: () => showDialog(
+                                  context: context,
+                                  builder: (_) =>
+                                      InsightFormDialog(insight: i),
+                                ).then((_) {
+                                  ref.invalidate(adminInsightsProvider);
+                                  ref.invalidate(insightsFeedProvider);
+                                }),
+                              ),
+                              IconButton(
+                                tooltip: 'Delete insight',
+                                icon:
+                                    const Icon(Icons.delete_outline, size: 18),
+                                onPressed: () => _confirmDelete(context, ref, i),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+          orElse: () => const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> i,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete "${i['title']}"?'),
+        content: const Text(
+          'Members lose it immediately. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: KColors.negative),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await supabase.from('insights').delete().eq('id', i['id'] as String);
+      ref.invalidate(adminInsightsProvider);
+      ref.invalidate(insightsFeedProvider);
     }
   }
 }

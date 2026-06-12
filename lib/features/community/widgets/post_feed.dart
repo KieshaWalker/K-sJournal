@@ -5,11 +5,12 @@ import 'package:intl/intl.dart';
 import '../../../core/supabase_client.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/glossy_card.dart';
+import '../../../core/widgets/photo_attach.dart';
 import '../providers/community_providers.dart';
 import 'member_avatar.dart';
 
 /// Compact feed timestamps: now, 12m, 4h, 3d, then the date.
-String timeAgo(DateTime? t) {
+String _timeAgo(DateTime? t) {
   if (t == null) return '';
   final d = DateTime.now().difference(t);
   if (d.inMinutes < 1) return 'now';
@@ -106,18 +107,29 @@ class _Composer extends ConsumerStatefulWidget {
 
 class _ComposerState extends ConsumerState<_Composer> {
   final _body = TextEditingController();
+  final _photo = PhotoAttachController();
   bool _busy = false;
+
+  @override
+  void dispose() {
+    _body.dispose();
+    _photo.dispose();
+    super.dispose();
+  }
 
   Future<void> _post() async {
     final text = _body.text.trim();
     if (text.isEmpty) return;
     setState(() => _busy = true);
     try {
+      final imageUrl = _photo.hasPhoto ? await _photo.upload() : null;
       await supabase.from('community_posts').insert({
         'user_id': supabase.auth.currentUser!.id,
         'body': text,
+        'image_url': ?imageUrl,
       });
       _body.clear();
+      _photo.clear();
       ref.invalidate(communityPostsProvider);
     } on Exception {
       if (mounted) {
@@ -133,8 +145,6 @@ class _ComposerState extends ConsumerState<_Composer> {
   @override
   Widget build(BuildContext context) {
     final me = widget.profilesById[supabase.auth.currentUser?.id];
-    final name = (me?['display_name'] as String?)?.trim();
-    final username = me?['username'] as String? ?? 'member';
     return GlossyCard(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       hoverLift: false,
@@ -143,14 +153,13 @@ class _ComposerState extends ConsumerState<_Composer> {
         children: [
           MemberAvatar(
             url: me?['avatar_url'] as String?,
-            fallbackInitial:
-                (name?.isNotEmpty == true ? name! : username)[0].toUpperCase(),
+            fallbackInitial: memberInitial(me),
             size: 42,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
                   controller: _body,
@@ -159,7 +168,7 @@ class _ComposerState extends ConsumerState<_Composer> {
                   maxLength: 280,
                   style: const TextStyle(fontSize: 14, height: 1.45),
                   decoration: const InputDecoration(
-                    hintText: 'Say it to the room.',
+                    hintText: 'Post to the room.',
                     counterText: '',
                     contentPadding: EdgeInsets.symmetric(vertical: 8),
                     border: InputBorder.none,
@@ -167,20 +176,29 @@ class _ComposerState extends ConsumerState<_Composer> {
                     focusedBorder: InputBorder.none,
                   ),
                 ),
-                FilledButton(
-                  style: glossyPrimaryButton().copyWith(
-                    padding: const WidgetStatePropertyAll(
-                      EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    PhotoAttachField(controller: _photo),
+                    const Spacer(),
+                    FilledButton(
+                      style: glossyPrimaryButton().copyWith(
+                        padding: const WidgetStatePropertyAll(
+                          EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                        ),
+                      ),
+                      onPressed: _busy ? null : _post,
+                      child: _busy
+                          ? const SizedBox(
+                              height: 14,
+                              width: 14,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Post',
+                              style: TextStyle(fontSize: 13)),
                     ),
-                  ),
-                  onPressed: _busy ? null : _post,
-                  child: _busy
-                      ? const SizedBox(
-                          height: 14,
-                          width: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Post', style: TextStyle(fontSize: 13)),
+                  ],
                 ),
               ],
             ),
@@ -215,6 +233,13 @@ class _PostTileState extends ConsumerState<_PostTile> {
   final _reply = TextEditingController();
   bool _replyOpen = false;
   bool _busy = false;
+  bool _likeBusy = false;
+
+  @override
+  void dispose() {
+    _reply.dispose();
+    super.dispose();
+  }
 
   void _snack(String message) {
     ScaffoldMessenger.of(context)
@@ -222,6 +247,8 @@ class _PostTileState extends ConsumerState<_PostTile> {
   }
 
   Future<void> _toggleLike(bool liked) async {
+    if (_likeBusy) return;
+    _likeBusy = true;
     final myId = supabase.auth.currentUser!.id;
     try {
       if (liked) {
@@ -239,6 +266,8 @@ class _PostTileState extends ConsumerState<_PostTile> {
       ref.invalidate(communityPostsProvider);
     } on Exception {
       if (mounted) _snack('That did not go through. Try again.');
+    } finally {
+      _likeBusy = false;
     }
   }
 
@@ -279,8 +308,7 @@ class _PostTileState extends ConsumerState<_PostTile> {
     final p = widget.post;
     final author = widget.profilesById[p['user_id']];
     final username = author?['username'] as String? ?? 'member';
-    final name = (author?['display_name'] as String?)?.trim();
-    final display = name?.isNotEmpty == true ? name! : '@$username';
+    final display = memberDisplayName(author);
     final myId = supabase.auth.currentUser?.id;
     final mine = p['user_id'] == myId;
     final likes = (p['post_likes'] as List?) ?? const [];
@@ -297,7 +325,7 @@ class _PostTileState extends ConsumerState<_PostTile> {
         children: [
           MemberAvatar(
             url: author?['avatar_url'] as String?,
-            fallbackInitial: username[0].toUpperCase(),
+            fallbackInitial: memberInitial(author),
             size: widget.isReply ? 30 : 42,
           ),
           const SizedBox(width: 12),
@@ -320,7 +348,7 @@ class _PostTileState extends ConsumerState<_PostTile> {
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        '@$username · ${timeAgo(created)}',
+                        '@$username · ${_timeAgo(created)}',
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
@@ -353,6 +381,8 @@ class _PostTileState extends ConsumerState<_PostTile> {
                   p['body'] as String? ?? '',
                   style: const TextStyle(fontSize: 14, height: 1.45),
                 ),
+                if ((p['image_url'] as String?)?.isNotEmpty == true)
+                  AttachedPhoto(url: p['image_url'] as String),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -410,6 +440,20 @@ class _PostTileState extends ConsumerState<_PostTile> {
                               hintText: 'Reply to $display',
                               counterText: '',
                               isDense: true,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 6),
+                              border: const UnderlineInputBorder(
+                                borderSide:
+                                    BorderSide(color: Color(0x33C9A84C)),
+                              ),
+                              enabledBorder: const UnderlineInputBorder(
+                                borderSide:
+                                    BorderSide(color: Color(0x33C9A84C)),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide:
+                                    BorderSide(color: Color(0x8CC9A84C)),
+                              ),
                             ),
                           ),
                         ),
@@ -448,7 +492,7 @@ class _PostAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color =
-        active ? KColors.memberAccentHover : KColors.memberTextSecondary;
+        active ? KColors.memberAccent : KColors.memberTextSecondary;
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
