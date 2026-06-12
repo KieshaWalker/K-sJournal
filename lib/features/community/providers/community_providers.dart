@@ -18,3 +18,15 @@ final communityProfilesProvider =
   });
   return profiles;
 });
+
+/// Wall posts newest-first with their likes embedded. The room is small and
+/// invitation-only, so one fetch carries the whole feed and replies are
+/// grouped under their parents client-side.
+final communityPostsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final rows = await supabase
+      .from('community_posts')
+      .select('*, post_likes(user_id)')
+      .order('created_at', ascending: false);
+  return List<Map<String, dynamic>>.from(rows);
+});

@@ -11,11 +11,12 @@ abstract final class KGold {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFFF2DEA0), // champagne highlight
       Color(0xFFC9A84C), // house gold
       Color(0xFF8F7430), // bronze shadow
+      Color(0xFFF2DEA0), // champagne highlight
+
     ],
-    stops: [0.0, 0.55, 1.0],
+    stops: [1.50, 0.75, .50],
   );
 
   /// Hairline that dissolves to nothing — for section rules.
