@@ -1,7 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase_client.dart';
+import '../../../core/theme.dart';
 import '../../admin/widgets/form_helpers.dart';
 
 /// Edits the viewer's own profile row; RLS only permits updating your own.
@@ -27,8 +31,32 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   late final _location =
       TextEditingController(text: widget.profile['location'] as String?);
   DateTime? _birthDate;
+  Uint8List? _pickedBytes;
+  String? _pickedMime;
   String? _error;
   bool _busy = false;
+
+  /// Opens the camera roll on phones and the file dialog on desktop; the
+  /// browser's own picker handles both, so no platform setup is needed.
+  Future<void> _pickPhoto() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    if (bytes.lengthInBytes > 5 * 1024 * 1024) {
+      setState(() => _error = 'Photo must be 5 MB or smaller.');
+      return;
+    }
+    setState(() {
+      _pickedBytes = bytes;
+      _pickedMime = picked.mimeType ?? 'image/jpeg';
+      _error = null;
+    });
+  }
 
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
@@ -51,6 +79,20 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
       _error = null;
     });
     try {
+      // A freshly picked photo wins over the URL field. One object per
+      // member, so re-uploads replace rather than pile up; the ?v= keeps a
+      // cached old photo from outliving the change.
+      if (_pickedBytes != null) {
+        final path = '${supabase.auth.currentUser!.id}/avatar';
+        await supabase.storage.from('avatars').uploadBinary(
+              path,
+              _pickedBytes!,
+              fileOptions:
+                  FileOptions(upsert: true, contentType: _pickedMime),
+            );
+        final url = supabase.storage.from('avatars').getPublicUrl(path);
+        _avatar.text = '$url?v=${DateTime.now().millisecondsSinceEpoch}';
+      }
       String? clean(TextEditingController c) =>
           c.text.trim().isEmpty ? null : c.text.trim();
       final update = <String, dynamic>{
@@ -79,6 +121,31 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     }
   }
 
+  /// The picked-but-unsaved photo if there is one, else the saved photo,
+  /// else a gold placeholder — so the member sees what the room will see.
+  Widget _photoPreview() {
+    const placeholder = DecoratedBox(
+      decoration: BoxDecoration(gradient: KGold.foil, shape: BoxShape.circle),
+      child: SizedBox(
+        width: 56,
+        height: 56,
+        child: Icon(Icons.person_outline, color: Colors.black, size: 26),
+      ),
+    );
+    final url = _avatar.text.trim();
+    if (_pickedBytes == null && url.isEmpty) return placeholder;
+    return ClipOval(
+      child: _pickedBytes != null
+          ? Image.memory(_pickedBytes!,
+              width: 56, height: 56, fit: BoxFit.cover)
+          : Image.network(url,
+              width: 56,
+              height: 56,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => placeholder),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FormDialogShell(
@@ -93,11 +160,39 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
           decoration: const InputDecoration(labelText: 'Display Name'),
         ),
         const SizedBox(height: 16),
+        Row(
+          children: [
+            _photoPreview(),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.photo_camera_outlined, size: 16),
+                    label: const Text('Upload Photo'),
+                    onPressed: _busy ? null : _pickPhoto,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'From your camera roll or computer. Up to 5 MB.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: KColors.memberTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         TextField(
           controller: _avatar,
+          onChanged: (_) => setState(() {}),
           decoration: const InputDecoration(
             labelText: 'Photo URL',
-            helperText: 'A link to your profile photo.',
+            helperText: 'Or paste a link to a photo instead.',
           ),
         ),
         const SizedBox(height: 16),
