@@ -8,15 +8,15 @@ import 'package:google_fonts/google_fonts.dart';
 abstract final class KGold {
   /// Champagne-to-bronze foil, lit from the upper left like metal leaf.
   static const foil = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
+    begin: Alignment.bottomLeft,
+    end: Alignment.topRight,
     colors: [
       Color(0xFFC9A84C), // house gold
       Color(0xFF8F7430), // bronze shadow
       Color(0xFFF2DEA0), // champagne highlight
 
     ],
-    stops: [1.50, 0.75, .50],
+    stops: [.550, 0.75, 1.0],
   );
 
   /// Hairline that dissolves to nothing — for section rules.
