@@ -141,10 +141,22 @@ class AppShell extends ConsumerWidget {
                                 child: Text('Invite Codes')),
                           ],
                         ],
-                        child: const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Icon(Icons.menu_rounded,
-                              color: KColors.memberTextPrimary),
+                        // A gold-hairline pill so the menu reads as a real
+                        // control, not stray icon lines on the cream bar.
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0x14C9A84C),
+                            border:
+                                Border.all(color: const Color(0x59C9A84C)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.menu_rounded,
+                            size: 22,
+                            color: KColors.memberTextPrimary,
+                          ),
                         ),
                       ),
                     const SizedBox(width: 8),

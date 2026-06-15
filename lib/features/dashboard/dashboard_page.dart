@@ -22,26 +22,7 @@ class DashboardPage extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _Reveal(
-                order: 0,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _SectionLabel('Insights'),
-                          SizedBox(height: 12),
-                          _InsightsFeed(),
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: 24),
-                    Expanded(child: _MacroPulse()),
-                  ],
-                ),
-              ),
+              const _Reveal(order: 0, child: _TopSection()),
               const SizedBox(height: 32),
               const _Reveal(order: 1, child: _IdeasSection()),
               const SizedBox(height: 32),
@@ -53,6 +34,47 @@ class DashboardPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// Insights and Macro Pulse split the top row on wide screens; on phones two
+/// columns would crush both, so they stack.
+class _TopSection extends StatelessWidget {
+  const _TopSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth < 700) {
+        return const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionLabel('Insights'),
+            SizedBox(height: 12),
+            _InsightsFeed(),
+            SizedBox(height: 32),
+            _MacroPulse(),
+          ],
+        );
+      }
+      return const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SectionLabel('Insights'),
+                SizedBox(height: 12),
+                _InsightsFeed(),
+              ],
+            ),
+          ),
+          SizedBox(width: 24),
+          Expanded(child: _MacroPulse()),
+        ],
+      );
+    });
   }
 }
 
