@@ -14,6 +14,7 @@ import '../features/admin/trade_entry_page.dart';
 import '../features/community/community_page.dart';
 import '../features/auth/welcome_page.dart';
 import '../features/dashboard/dashboard_page.dart';
+import '../features/insights/insight_detail_page.dart';
 import '../features/shell/app_shell.dart';
 import '../features/shell/placeholder_page.dart';
 import '../features/trades/trade_detail_page.dart';
@@ -113,6 +114,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               path: '/trade/:id',
               builder: (_, state) =>
                   TradeDetailPage(tradeId: state.pathParameters['id']!)),
+          GoRoute(
+              path: '/insight/:id',
+              builder: (_, state) =>
+                  InsightDetailPage(insightId: state.pathParameters['id']!)),
           GoRoute(
               path: '/community',
               builder: (_, _) => const CommunityPage()),

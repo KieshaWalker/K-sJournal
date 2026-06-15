@@ -8,45 +8,43 @@ import '../../core/supabase_client.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/glossy_card.dart';
 import '../../core/widgets/photo_attach.dart';
-import '../../core/widgets/position_freshness.dart';
-import 'providers/trade_providers.dart';
-import 'trades_list_page.dart';
+import 'providers/insight_providers.dart';
 
-/// Full detail for one trade: thesis, entry/exit data, Greeks, legs, and the
-/// member discussion thread (questions and comments).
-class TradeDetailPage extends ConsumerWidget {
-  const TradeDetailPage({super.key, required this.tradeId});
+/// Full view of one insight — K's take in full, plus the member discussion
+/// thread (questions and comments), the same model trades use.
+class InsightDetailPage extends ConsumerWidget {
+  const InsightDetailPage({super.key, required this.insightId});
 
-  final String tradeId;
+  final String insightId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final trade = ref.watch(tradeDetailProvider(tradeId));
+    final insight = ref.watch(insightDetailProvider(insightId));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
-          child: trade.when(
+          child: insight.when(
             loading: () => const Padding(
               padding: EdgeInsets.all(48),
               child: Center(child: CircularProgressIndicator()),
             ),
             error: (e, _) => const GlossyCard(
               child: Text(
-                'Could not load this trade.',
+                'Could not load this insight.',
                 style: TextStyle(color: KColors.negative, fontSize: 13),
               ),
             ),
-            data: (t) {
-              if (t == null) {
+            data: (i) {
+              if (i == null) {
                 return GlossyCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'This trade is not available on your membership.',
+                        'This insight is no longer available.',
                         style: TextStyle(fontSize: 13),
                       ),
                       const SizedBox(height: 8),
@@ -59,7 +57,7 @@ class TradeDetailPage extends ConsumerWidget {
                   ),
                 );
               }
-              return _TradeDetail(trade: t, tradeId: tradeId);
+              return _InsightDetail(insight: i, insightId: insightId);
             },
           ),
         ),
@@ -68,31 +66,27 @@ class TradeDetailPage extends ConsumerWidget {
   }
 }
 
-class _TradeDetail extends StatelessWidget {
-  const _TradeDetail({required this.trade, required this.tradeId});
+class _InsightDetail extends StatelessWidget {
+  const _InsightDetail({required this.insight, required this.insightId});
 
-  final Map<String, dynamic> trade;
-  final String tradeId;
+  final Map<String, dynamic> insight;
+  final String insightId;
 
   @override
   Widget build(BuildContext context) {
-    final t = trade;
-    final status = t['status'] as String;
-    final inFlight = status == 'in_flight';
-    final landed = status == 'landed';
-    final backPath = status == 'pre_flight' ? '/ideas' : '/positions';
-    final tags = (t['tags'] as List?)?.cast<String>() ?? const [];
+    final i = insight;
+    final date = DateTime.parse(i['insight_date'] as String);
+    final bias = i['market_bias'] as String?;
+    final ticker = i['scope'] == 'ticker' ? i['ticker'] as String? : null;
+    final tags = (i['macro_tags'] as List?)?.cast<String>() ?? const [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextButton.icon(
-          onPressed: () => context.go(backPath),
+          onPressed: () => context.go('/dashboard'),
           icon: const Icon(Icons.arrow_back, size: 14),
-          label: Text(
-            status == 'pre_flight' ? 'Pre-Flight' : 'In-Flight',
-            style: const TextStyle(fontSize: 12),
-          ),
+          label: const Text('Dashboard', style: TextStyle(fontSize: 12)),
         ),
         const SizedBox(height: 12),
         GlossyCard(
@@ -102,47 +96,39 @@ class _TradeDetail extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    t['ticker'] as String,
-                    style: KFonts.heading(size: 28),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      '${tradeStrategyLabel(t['strategy_type'] as String)}'
-                      ' · ${t['direction']}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: KColors.memberTextSecondary,
-                      ),
+                    DateFormat('MMM d, yyyy').format(date),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                      color: KColors.memberTextSecondary,
                     ),
                   ),
-                  _StatusChip(status: status, outcome: t['outcome'] as String?),
+                  if (ticker != null) ...[
+                    const SizedBox(width: 10),
+                    Text(
+                      ticker.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1,
+                        color: KColors.memberAccent,
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  if (bias != null) _BiasChip(bias: bias),
                 ],
               ),
-              if (inFlight || landed) ...[
+              const SizedBox(height: 12),
+              Text(i['title'] as String, style: KFonts.heading(size: 24)),
+              const SizedBox(height: 12),
+              Text(
+                i['body'] as String,
+                style: const TextStyle(fontSize: 14, height: 1.6),
+              ),
+              if ((i['image_url'] as String?)?.isNotEmpty ?? false) ...[
                 const SizedBox(height: 14),
-                Text(
-                  _pnlText(t, landed: landed),
-                  style: KFonts.data(
-                    size: 22,
-                    weight: FontWeight.w600,
-                    color: _pnlColor(t, landed: landed),
-                  ),
-                ),
-                PositionFreshness(trade: t),
-              ],
-              if ((t['thesis_notes'] as String?)?.isNotEmpty ?? false) ...[
-                const SizedBox(height: 18),
-                const _Label('Thesis'),
-                const SizedBox(height: 8),
-                Text(
-                  t['thesis_notes'] as String,
-                  style: const TextStyle(fontSize: 14, height: 1.6),
-                ),
-              ],
-              if ((t['image_url'] as String?)?.isNotEmpty ?? false) ...[
-                const SizedBox(height: 14),
-                AttachedPhoto(url: t['image_url'] as String, maxHeight: 420),
+                AttachedPhoto(url: i['image_url'] as String, maxHeight: 420),
               ],
               if (tags.isNotEmpty) ...[
                 const SizedBox(height: 14),
@@ -173,125 +159,46 @@ class _TradeDetail extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        _StatsCard(
-          label: 'Volatility at Entry',
-          stats: [
-            ('IV', _num(t['entry_iv'], 2)),
-            ('IV Rank', _num(t['entry_iv_rank'], 0)),
-            ('IV %ile', _num(t['entry_iv_pct'], 0)),
-          ],
-        ),
-        if (inFlight || landed) ...[
-          const SizedBox(height: 16),
-          _StatsCard(
-            label: 'Entry',
-            stats: [
-              ('Date', t['entry_date'] as String? ?? '—'),
-              ('Price', _money(t['entry_price'])),
-              ('Qty', '${t['quantity'] ?? '—'}'),
-              ('Size', _money(t['position_size_usd'], digits: 0)),
-              ('Stock', _money(t['stock_price_at_entry'])),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _StatsCard(
-            label: 'Greeks at Entry',
-            stats: [
-              ('Delta', _num(t['entry_delta'], 2)),
-              ('Gamma', _num(t['entry_gamma'], 3)),
-              ('Theta', _num(t['entry_theta'], 2)),
-              ('Vega', _num(t['entry_vega'], 2)),
-            ],
-          ),
-        ],
-        if (inFlight) ...[
-          const SizedBox(height: 16),
-          _StatsCard(
-            label: 'Live',
-            stats: [
-              ('Price', _money(t['current_price'])),
-              ('Delta', _num(t['current_delta'], 2)),
-              ('Gamma', _num(t['current_gamma'], 3)),
-              ('Theta', _num(t['current_theta'], 2)),
-              ('Vega', _num(t['current_vega'], 2)),
-              ('IV', _num(t['current_iv'], 2)),
-            ],
-          ),
-        ],
-        if (landed) ...[
-          const SizedBox(height: 16),
-          _StatsCard(
-            label: 'Exit',
-            stats: [
-              ('Date', t['exit_date'] as String? ?? '—'),
-              ('Price', _money(t['exit_price'])),
-              ('Realized', _money(t['realized_pnl'], digits: 0)),
-              ('Return', '${_num(t['pnl_percent'], 1)}%'),
-            ],
-          ),
-          if ((t['exit_notes'] as String?)?.isNotEmpty ?? false) ...[
-            const SizedBox(height: 16),
-            GlossyCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _Label('Exit Notes'),
-                  const SizedBox(height: 8),
-                  Text(
-                    t['exit_notes'] as String,
-                    style: const TextStyle(fontSize: 14, height: 1.6),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-        if (inFlight || landed) ...[
-          const SizedBox(height: 16),
-          _LegsCard(tradeId: tradeId),
-          const SizedBox(height: 16),
-          _DiscussionCard(tradeId: tradeId),
-        ] else ...[
-          const SizedBox(height: 16),
-          const GlossyCard(
-            child: Text(
-              'Discussion opens when this trade goes live.',
-              style: TextStyle(
-                fontSize: 13,
-                color: KColors.memberTextSecondary,
-              ),
-            ),
-          ),
-        ],
+        _DiscussionCard(insightId: insightId),
       ],
     );
   }
-
-  static String _pnlText(Map<String, dynamic> t, {required bool landed}) {
-    final pnl = ((landed ? t['realized_pnl'] : t['unrealized_pnl']) as num?)
-        ?.toDouble();
-    final pct = (t['pnl_percent'] as num?)?.toDouble();
-    if (pnl == null) return '—';
-    final sign = pnl >= 0 ? '+' : '−';
-    return '$sign\$${pnl.abs().toStringAsFixed(0)}'
-        '${pct == null ? '' : '  $sign${pct.abs().toStringAsFixed(1)}%'}'
-        '${landed ? '' : '  unrealized'}';
-  }
-
-  static Color _pnlColor(Map<String, dynamic> t, {required bool landed}) {
-    final pnl = ((landed ? t['realized_pnl'] : t['unrealized_pnl']) as num?)
-        ?.toDouble();
-    if (pnl == null) return KColors.neutral;
-    return pnl >= 0 ? KColors.positive : KColors.negative;
-  }
 }
 
-String _num(Object? v, int digits) =>
-    v == null ? '—' : (v as num).toStringAsFixed(digits);
+class _BiasChip extends StatelessWidget {
+  const _BiasChip({required this.bias});
 
-String _money(Object? v, {int digits = 2}) => v == null
-    ? '—'
-    : '\$${NumberFormat('#,##0${digits == 0 ? '' : '.${'0' * digits}'}').format(v as num)}';
+  final String bias;
+
+  static const _biasColors = {
+    'bullish': KColors.positive,
+    'bearish': KColors.negative,
+    'neutral': KColors.neutral,
+    'cautious': KColors.pending,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _biasColors[bias] ?? KColors.neutral;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        bias.toUpperCase(),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.5,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
 
 class _Label extends StatelessWidget {
   const _Label(this.text);
@@ -311,134 +218,12 @@ class _Label extends StatelessWidget {
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status, this.outcome});
-
-  final String status;
-  final String? outcome;
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = switch (status) {
-      'pre_flight' => ('PRE-FLIGHT', KColors.pending),
-      'in_flight' => ('IN-FLIGHT', KColors.accent),
-      'landed' => (
-          'LANDED · ${(outcome ?? '').toUpperCase()}',
-          outcome == 'win'
-              ? KColors.positive
-              : outcome == 'loss'
-                  ? KColors.negative
-                  : KColors.neutral,
-        ),
-      _ => (status.toUpperCase(), KColors.neutral),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-
-class _StatsCard extends StatelessWidget {
-  const _StatsCard({required this.label, required this.stats});
-
-  final String label;
-  final List<(String, String)> stats;
-
-  @override
-  Widget build(BuildContext context) {
-    if (stats.every((s) => s.$2 == '—')) return const SizedBox.shrink();
-    return GlossyCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(label),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 36,
-            runSpacing: 12,
-            children: [
-              for (final (name, value) in stats)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 10,
-                        letterSpacing: 1,
-                        color: KColors.memberTextSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(value, style: KFonts.data(size: 14)),
-                  ],
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LegsCard extends ConsumerWidget {
-  const _LegsCard({required this.tradeId});
-
-  final String tradeId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final legs = ref.watch(tradeLegsProvider(tradeId));
-    return legs.maybeWhen(
-      data: (rows) => rows.isEmpty
-          ? const SizedBox.shrink()
-          : GlossyCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _Label('Legs'),
-                  const SizedBox(height: 12),
-                  for (final l in rows)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text(
-                        '${(l['action'] as String).toUpperCase()} '
-                        '${l['quantity']}× '
-                        '${(l['option_type'] as String).toUpperCase()} '
-                        '${_num(l['strike'], 0)} '
-                        'exp ${l['expiry_date']} '
-                        '@ ${_num(l['entry_price'], 2)}'
-                        '${l['exit_price'] == null ? '' : ' → ${_num(l['exit_price'], 2)}'}',
-                        style: KFonts.data(size: 13),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-      orElse: () => const SizedBox.shrink(),
-    );
-  }
-}
-
 // ---- Discussion ----
 
 class _DiscussionCard extends ConsumerStatefulWidget {
-  const _DiscussionCard({required this.tradeId});
+  const _DiscussionCard({required this.insightId});
 
-  final String tradeId;
+  final String insightId;
 
   @override
   ConsumerState<_DiscussionCard> createState() => _DiscussionCardState();
@@ -458,15 +243,15 @@ class _DiscussionCardState extends ConsumerState<_DiscussionCard> {
       _error = null;
     });
     try {
-      await supabase.from('trade_comments').insert({
-        'trade_id': widget.tradeId,
+      await supabase.from('insight_comments').insert({
+        'insight_id': widget.insightId,
         'user_id': supabase.auth.currentUser!.id,
         'body': body,
         'is_question': _isQuestion,
       });
       _body.clear();
       setState(() => _isQuestion = false);
-      ref.invalidate(tradeThreadProvider(widget.tradeId));
+      ref.invalidate(insightThreadProvider(widget.insightId));
     } on Exception catch (e) {
       setState(() => _error = 'Could not post: $e');
     } finally {
@@ -476,7 +261,7 @@ class _DiscussionCardState extends ConsumerState<_DiscussionCard> {
 
   @override
   Widget build(BuildContext context) {
-    final thread = ref.watch(tradeThreadProvider(widget.tradeId));
+    final thread = ref.watch(insightThreadProvider(widget.insightId));
     final tier = ref.watch(memberTierProvider);
     final isAdmin = ref.watch(isAdminProvider);
     final canPost = isAdmin || tier == 'inner_circle';
@@ -521,9 +306,8 @@ class _DiscussionCardState extends ConsumerState<_DiscussionCard> {
                         _CommentTile(
                           key: ValueKey(c['id']),
                           comment: c,
-                          username:
-                              d.usernames[c['user_id']] ?? 'member',
-                          tradeId: widget.tradeId,
+                          username: d.usernames[c['user_id']] ?? 'member',
+                          insightId: widget.insightId,
                         ),
                     ],
                   ),
@@ -645,12 +429,12 @@ class _CommentTile extends ConsumerStatefulWidget {
     super.key,
     required this.comment,
     required this.username,
-    required this.tradeId,
+    required this.insightId,
   });
 
   final Map<String, dynamic> comment;
   final String username;
-  final String tradeId;
+  final String insightId;
 
   @override
   ConsumerState<_CommentTile> createState() => _CommentTileState();
@@ -670,9 +454,9 @@ class _CommentTileState extends ConsumerState<_CommentTile> {
     setState(() => _busy = true);
     try {
       await supabase
-          .from('trade_comments')
+          .from('insight_comments')
           .update({'body': body}).eq('id', widget.comment['id'] as String);
-      ref.invalidate(tradeThreadProvider(widget.tradeId));
+      ref.invalidate(insightThreadProvider(widget.insightId));
       if (mounted) setState(() => _edit = null);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -702,10 +486,10 @@ class _CommentTileState extends ConsumerState<_CommentTile> {
     );
     if (ok != true) return;
     await supabase
-        .from('trade_comments')
+        .from('insight_comments')
         .delete()
         .eq('id', widget.comment['id'] as String);
-    ref.invalidate(tradeThreadProvider(widget.tradeId));
+    ref.invalidate(insightThreadProvider(widget.insightId));
   }
 
   @override

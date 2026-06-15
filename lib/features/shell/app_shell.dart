@@ -74,7 +74,7 @@ class AppShell extends ConsumerWidget {
                       ],
                     ),
                     if (!compact) ...[
-                      const SizedBox(width: 52),
+                      const SizedBox(width: 52,),
                       for (final link in _links)
                         _NavLink(
                           label: link.label,

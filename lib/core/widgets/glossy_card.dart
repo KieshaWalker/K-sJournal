@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
@@ -96,3 +98,40 @@ ButtonStyle glossyPrimaryButton() => FilledButton.styleFrom(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       shape: const StadiumBorder(),
     );
+
+/// A wrapping row of cards. Each card is [maxWidth] wide when the row has
+/// room, so several sit side by side on a desktop; on a phone, where one
+/// fixed-width card would overrun the screen, every card shrinks to the full
+/// available width instead — nothing clips off the right edge. The chosen
+/// width is handed to [itemBuilder] so each card sizes itself to match.
+class CardWrap extends StatelessWidget {
+  const CardWrap({
+    super.key,
+    required this.maxWidth,
+    required this.count,
+    required this.itemBuilder,
+    this.spacing = 16,
+  });
+
+  final double maxWidth;
+  final int count;
+  final double spacing;
+  final Widget Function(BuildContext context, int index, double width)
+      itemBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = math.min(maxWidth, constraints.maxWidth);
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (var i = 0; i < count; i++) itemBuilder(context, i, width),
+          ],
+        );
+      },
+    );
+  }
+}

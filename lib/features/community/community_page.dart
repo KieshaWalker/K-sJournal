@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -236,8 +238,11 @@ class _ProfileCard extends StatelessWidget {
     final isHost = p['is_admin'] == true;
     final since = DateTime.tryParse(p['member_since'] as String? ?? '');
 
+    // The card lives in a Dialog (40px inset each side); cap its width to the
+    // dialog's room so it never clips on a phone.
+    final width = math.min(348.0, MediaQuery.sizeOf(context).width - 80);
     return GlossyCard(
-      width: 348,
+      width: width,
       padding: const EdgeInsets.all(20),
       hoverLift: false,
       child: Column(

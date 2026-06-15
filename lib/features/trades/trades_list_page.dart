@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/glossy_card.dart';
+import '../../core/widgets/position_freshness.dart';
 import 'providers/trade_providers.dart';
 import 'widgets/comment_counts.dart';
 
@@ -77,10 +78,11 @@ class TradesListPage extends ConsumerWidget {
                       ),
                     );
                   }
-                  return Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: [for (final t in data) _TradeCard(trade: t)],
+                  return CardWrap(
+                    maxWidth: 348,
+                    count: data.length,
+                    itemBuilder: (_, i, w) =>
+                        _TradeCard(trade: data[i], width: w),
                   );
                 },
               ),
@@ -93,9 +95,10 @@ class TradesListPage extends ConsumerWidget {
 }
 
 class _TradeCard extends StatelessWidget {
-  const _TradeCard({required this.trade});
+  const _TradeCard({required this.trade, required this.width});
 
   final Map<String, dynamic> trade;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +114,7 @@ class _TradeCard extends StatelessWidget {
         : KColors.negative;
 
     return GlossyCard(
-      width: 348,
+      width: width,
       padding: EdgeInsets.zero,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -161,6 +164,7 @@ class _TradeCard extends StatelessWidget {
                     weight: FontWeight.w600,
                   ),
                 ),
+                PositionFreshness(trade: t),
                 const SizedBox(height: 10),
               ],
               Text(

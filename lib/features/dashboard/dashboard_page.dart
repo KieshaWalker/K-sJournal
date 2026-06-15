@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/glossy_card.dart';
 import '../../core/widgets/photo_attach.dart';
+import '../../core/widgets/position_freshness.dart';
 import '../trades/widgets/comment_counts.dart';
 import 'providers/dashboard_providers.dart';
 
@@ -108,9 +109,13 @@ class _SectionLabel extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.label, {this.linkLabel, this.linkPath});
+  const _SectionHeader(this.label, {this.trailing, this.linkLabel, this.linkPath});
 
   final String label;
+
+  /// Optional widget sat against the hairline before the link — the running
+  /// P&L total for the section.
+  final Widget? trailing;
   final String? linkLabel;
   final String? linkPath;
 
@@ -127,6 +132,10 @@ class _SectionHeader extends StatelessWidget {
             decoration: const BoxDecoration(gradient: KGold.hairline),
           ),
         ),
+        if (trailing != null) ...[
+          const SizedBox(width: 16),
+          trailing!,
+        ],
         if (linkLabel != null && linkPath != null) ...[
           const SizedBox(width: 16),
           TextButton(
@@ -138,6 +147,29 @@ class _SectionHeader extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// A section's running P&L total — gold-green for gains, house-red for
+/// losses, neutral at flat. Used in the In-Flight (unrealized) and Landed
+/// (realized) section headers.
+class _PnlTotal extends StatelessWidget {
+  const _PnlTotal(this.value);
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = value > 0
+        ? KColors.positive
+        : value < 0
+            ? KColors.negative
+            : KColors.neutral;
+    final sign = value >= 0 ? '+' : '−';
+    return Text(
+      '$sign\$${NumberFormat('#,##0').format(value.abs())}',
+      style: KFonts.data(size: 13, color: color, weight: FontWeight.w600),
     );
   }
 }
@@ -283,10 +315,68 @@ class _InsightTileState extends State<_InsightTile> {
               overflow: _expanded ? null : TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13, height: 1.55),
             ),
-            if (_expanded && (i['image_url'] as String?)?.isNotEmpty == true)
-              AttachedPhoto(url: i['image_url'] as String, maxHeight: 260),
+            _InsightCommentCounts(
+              insight: i,
+              padding: const EdgeInsets.only(top: 8),
+            ),
+            if (_expanded) ...[
+              if ((i['image_url'] as String?)?.isNotEmpty == true)
+                AttachedPhoto(url: i['image_url'] as String, maxHeight: 260),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => context.go('/insight/${i['id']}'),
+                  child: const Text('View & discuss →',
+                      style: TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// "2 questions · 3 comments" caption for an insight tile, from the embedded
+/// `insight_comments(is_question)` rows; renders nothing when the thread is
+/// empty.
+class _InsightCommentCounts extends StatelessWidget {
+  const _InsightCommentCounts({required this.insight, required this.padding});
+
+  final Map<String, dynamic> insight;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = (insight['insight_comments'] as List?) ?? const [];
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final questions =
+        rows.where((r) => (r as Map)['is_question'] == true).length;
+    final comments = rows.length - questions;
+    final parts = [
+      if (questions > 0) '$questions question${questions == 1 ? '' : 's'}',
+      if (comments > 0) '$comments comment${comments == 1 ? '' : 's'}',
+    ];
+    return Padding(
+      padding: padding,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.mode_comment_outlined,
+            size: 12,
+            color: KColors.memberTextSecondary,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            parts.join(' · '),
+            style: const TextStyle(
+              fontSize: 11,
+              color: KColors.memberTextSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -431,10 +521,10 @@ class _IdeasSection extends ConsumerWidget {
               color: KColors.negative),
           data: (data) => data.isEmpty
               ? const _MessageCard('Nothing on the runway.')
-              : Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  children: [for (final t in data) _IdeaCard(trade: t)],
+              : CardWrap(
+                  maxWidth: 348,
+                  count: data.length,
+                  itemBuilder: (_, i, w) => _IdeaCard(trade: data[i], width: w),
                 ),
         ),
       ],
@@ -443,8 +533,9 @@ class _IdeasSection extends ConsumerWidget {
 }
 
 class _IdeaCard extends StatefulWidget {
-  const _IdeaCard({required this.trade});
+  const _IdeaCard({required this.trade, required this.width});
   final Map<String, dynamic> trade;
+  final double width;
 
   @override
   State<_IdeaCard> createState() => _IdeaCardState();
@@ -459,7 +550,7 @@ class _IdeaCardState extends State<_IdeaCard> {
     final ivr = (t['entry_iv_rank'] as num?)?.toDouble();
     final tags = (t['tags'] as List?)?.cast<String>() ?? const [];
     return GlossyCard(
-      width: 348,
+      width: widget.width,
       padding: const EdgeInsets.all(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -546,8 +637,13 @@ class _InFlightSection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         trades.maybeWhen(
-          data: (d) => _SectionHeader('In-Flight (${d.length})',
-              linkLabel: 'View all →', linkPath: '/positions'),
+          data: (d) {
+            final total = d.fold<double>(
+                0, (s, t) => s + ((t['unrealized_pnl'] as num?)?.toDouble() ?? 0));
+            return _SectionHeader('In-Flight (${d.length})',
+                trailing: d.isEmpty ? null : _PnlTotal(total),
+                linkLabel: 'View all →', linkPath: '/positions');
+          },
           orElse: () => const _SectionHeader('In-Flight'),
         ),
         const SizedBox(height: 4),
@@ -557,10 +653,11 @@ class _InFlightSection extends ConsumerWidget {
               color: KColors.negative),
           data: (data) => data.isEmpty
               ? const _MessageCard('No in-flight positions.')
-              : Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  children: [for (final t in data) _InFlightCard(trade: t)],
+              : CardWrap(
+                  maxWidth: 348,
+                  count: data.length,
+                  itemBuilder: (_, i, w) =>
+                      _InFlightCard(trade: data[i], width: w),
                 ),
         ),
       ],
@@ -569,8 +666,9 @@ class _InFlightSection extends ConsumerWidget {
 }
 
 class _InFlightCard extends StatefulWidget {
-  const _InFlightCard({required this.trade});
+  const _InFlightCard({required this.trade, required this.width});
   final Map<String, dynamic> trade;
+  final double width;
 
   @override
   State<_InFlightCard> createState() => _InFlightCardState();
@@ -590,7 +688,7 @@ class _InFlightCardState extends State<_InFlightCard> {
         ? KColors.positive
         : KColors.negative;
     return GlossyCard(
-      width: 348,
+      width: widget.width,
       padding: const EdgeInsets.all(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -623,6 +721,7 @@ class _InFlightCardState extends State<_InFlightCard> {
                         '${pnlPct == null ? '' : '  ${pnl >= 0 ? '+' : '−'}${pnlPct.abs().toStringAsFixed(0)}%'}',
               style: KFonts.data(size: 17, color: color, weight: FontWeight.w600),
             ),
+            PositionFreshness(trade: t),
             TradeCommentCounts(
               trade: t,
               padding: const EdgeInsets.only(top: 8),
@@ -695,10 +794,14 @@ class _RecentlyLanded extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final trades = ref.watch(recentlyLandedProvider);
+    final landedTotal = ref.watch(landedPnlTotalProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader('Landed',
+        _SectionHeader('Landed',
+            trailing: landedTotal.maybeWhen(
+                data: (v) => v == null ? null : _PnlTotal(v),
+                orElse: () => null),
             linkLabel: 'View all →', linkPath: '/ideas'),
         const SizedBox(height: 4),
         trades.when(

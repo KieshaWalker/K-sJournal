@@ -83,7 +83,7 @@ final insightsFeedProvider =
   final rows = await supabase
       .from('insights')
       .select('id, title, body, insight_date, market_bias, macro_tags, '
-          'scope, ticker, image_url')
+          'scope, ticker, image_url, insight_comments(is_question)')
       .eq('is_published', true)
       .order('insight_date', ascending: false)
       .order('created_at', ascending: false)
@@ -96,9 +96,9 @@ final activeTradesProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
   return supabase
       .from('trades')
-      .select('id, ticker, strategy_type, direction, unrealized_pnl, '
-          'pnl_percent, entry_date, entry_price, entry_iv_rank, thesis_notes, '
-          'trade_comments(is_question)')
+      .select('id, ticker, strategy_type, direction, status, unrealized_pnl, '
+          'pnl_percent, current_price, current_as_of, entry_date, entry_price, '
+          'entry_iv_rank, thesis_notes, trade_comments(is_question)')
       .eq('status', 'in_flight')
       .order('updated_at', ascending: false);
 });
@@ -126,4 +126,17 @@ final recentlyLandedProvider =
       .eq('status', 'landed')
       .order('exit_date', ascending: false)
       .limit(5);
+});
+
+/// Total realized P&L across ALL landed trades — the section header total,
+/// not just the recent five the cards show. One lightweight column, summed
+/// over whatever the viewer's RLS lets them read (members see every landed
+/// trade). Null realized_pnl counts as zero; null is returned when there are
+/// no landed trades at all, so the header can omit the total entirely.
+final landedPnlTotalProvider = FutureProvider<double?>((ref) async {
+  final rows =
+      await supabase.from('trades').select('realized_pnl').eq('status', 'landed');
+  if (rows.isEmpty) return null;
+  return rows.fold<double>(
+      0, (sum, r) => sum + ((r['realized_pnl'] as num?)?.toDouble() ?? 0));
 });
