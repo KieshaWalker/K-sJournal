@@ -174,6 +174,29 @@ class _PnlTotal extends StatelessWidget {
   }
 }
 
+/// A section's win rate — wins over decided (win + loss) trades, muted so the
+/// P&L total beside it carries the colour. Tooltip spells out the tally.
+class _WinRate extends StatelessWidget {
+  const _WinRate(this.stats);
+
+  final LandedStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final wr = stats.winRate;
+    final label = wr == null ? '— W' : '${(wr * 100).round()}% W';
+    final tip = '${stats.wins}W · ${stats.losses}L'
+        '${stats.scratches > 0 ? ' · ${stats.scratches} scratch' : ''}';
+    return Tooltip(
+      message: tip,
+      child: Text(
+        label,
+        style: KFonts.data(size: 13, color: KColors.memberTextSecondary),
+      ),
+    );
+  }
+}
+
 /// Sections rise into place as the page opens — staggered, brief, once.
 class _Reveal extends StatefulWidget {
   const _Reveal({required this.order, required this.child});
@@ -794,13 +817,22 @@ class _RecentlyLanded extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final trades = ref.watch(recentlyLandedProvider);
-    final landedTotal = ref.watch(landedPnlTotalProvider);
+    final landedStats = ref.watch(landedStatsProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionHeader('Landed',
-            trailing: landedTotal.maybeWhen(
-                data: (v) => v == null ? null : _PnlTotal(v),
+            trailing: landedStats.maybeWhen(
+                data: (st) => st.count == 0
+                    ? null
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _WinRate(st),
+                          const SizedBox(width: 14),
+                          _PnlTotal(st.realizedPnl),
+                        ],
+                      ),
                 orElse: () => null),
             linkLabel: 'View all →', linkPath: '/ideas'),
         const SizedBox(height: 4),
@@ -820,6 +852,12 @@ class _RecentlyLanded extends ConsumerWidget {
     );
   }
 
+}
+
+/// M/d/yy for a stored 'yyyy-mm-dd' date string, em dash when absent.
+String _mdy(Object? iso) {
+  final d = DateTime.tryParse((iso as String?) ?? '');
+  return d == null ? '—' : DateFormat('M/d/yy').format(d);
 }
 
 class _LandedCard extends StatelessWidget {
@@ -861,6 +899,12 @@ class _LandedCard extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 12, color: KColors.memberTextSecondary),
                 overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${_mdy(t['entry_date'])} - ${_mdy(t['exit_date'])}',
+                style: KFonts.data(
+                    size: 11, color: KColors.memberTextSecondary),
               ),
               const SizedBox(height: 10),
               Text(

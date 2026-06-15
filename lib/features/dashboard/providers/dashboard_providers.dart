@@ -128,15 +128,56 @@ final recentlyLandedProvider =
       .limit(5);
 });
 
-/// Total realized P&L across ALL landed trades — the section header total,
-/// not just the recent five the cards show. One lightweight column, summed
-/// over whatever the viewer's RLS lets them read (members see every landed
-/// trade). Null realized_pnl counts as zero; null is returned when there are
-/// no landed trades at all, so the header can omit the total entirely.
-final landedPnlTotalProvider = FutureProvider<double?>((ref) async {
-  final rows =
-      await supabase.from('trades').select('realized_pnl').eq('status', 'landed');
-  if (rows.isEmpty) return null;
-  return rows.fold<double>(
-      0, (sum, r) => sum + ((r['realized_pnl'] as num?)?.toDouble() ?? 0));
+/// Section-header stats across ALL landed trades — total realized P&L and the
+/// win/loss/scratch tally — not just the recent five the cards show. Win rate
+/// is wins / (wins + losses); scratches (breakeven) sit out of the
+/// denominator. Null realized_pnl counts as zero in the P&L sum.
+class LandedStats {
+  const LandedStats({
+    required this.count,
+    required this.realizedPnl,
+    required this.wins,
+    required this.losses,
+    required this.scratches,
+  });
+
+  final int count;
+  final double realizedPnl;
+  final int wins;
+  final int losses;
+  final int scratches;
+
+  /// Decided trades — the win-rate denominator.
+  int get decided => wins + losses;
+
+  /// Wins as a fraction of decided trades, or null when nothing is decided
+  /// (no landed trades, or every landed trade scratched).
+  double? get winRate => decided == 0 ? null : wins / decided;
+}
+
+final landedStatsProvider = FutureProvider<LandedStats>((ref) async {
+  final rows = await supabase
+      .from('trades')
+      .select('realized_pnl, outcome')
+      .eq('status', 'landed');
+  var pnl = 0.0;
+  var wins = 0, losses = 0, scratches = 0;
+  for (final r in rows) {
+    pnl += (r['realized_pnl'] as num?)?.toDouble() ?? 0;
+    switch (r['outcome'] as String?) {
+      case 'win':
+        wins++;
+      case 'loss':
+        losses++;
+      case 'scratch':
+        scratches++;
+    }
+  }
+  return LandedStats(
+    count: rows.length,
+    realizedPnl: pnl,
+    wins: wins,
+    losses: losses,
+    scratches: scratches,
+  );
 });
