@@ -92,6 +92,9 @@ class AppShell extends ConsumerWidget {
                             PopupMenuItem(
                                 value: '/admin/invites',
                                 child: Text('Invite Codes')),
+                            PopupMenuItem(
+                                value: '/admin/account',
+                                child: Text('Accounts')),
                           ],
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -139,6 +142,9 @@ class AppShell extends ConsumerWidget {
                             const PopupMenuItem(
                                 value: '/admin/invites',
                                 child: Text('Invite Codes')),
+                            const PopupMenuItem(
+                                value: '/admin/account',
+                                child: Text('Accounts')),
                           ],
                         ],
                         // A gold-hairline pill so the menu reads as a real

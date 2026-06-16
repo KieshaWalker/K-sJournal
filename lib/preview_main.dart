@@ -75,6 +75,7 @@ final _overrides = [
       }),
   insightsFeedProvider.overrideWith((ref) async => _insights),
   macroTilesProvider.overrideWith((ref) async => _macroTiles),
+  earlyIdeasProvider.overrideWith((ref) async => _ideas),
   preFlightIdeasProvider.overrideWith((ref) async => _preFlight),
   activeTradesProvider.overrideWith((ref) async => _inFlight),
   recentlyLandedProvider.overrideWith((ref) async => _landed),
@@ -127,6 +128,32 @@ const _macroTiles = [
   MacroTile(ticker: 'IWM', label: 'Russell', close: 228.07, changePct: -0.4, ivRank: 44),
   MacroTile(ticker: 'VIX', label: 'Vol', close: 14.92, changePct: -3.1),
   MacroTile(ticker: 'GLD', label: 'Gold', close: 312.55, changePct: 0.6, ivRank: 18),
+];
+
+final _ideas = <Map<String, dynamic>>[
+  {
+    'id': 'd1',
+    'status': 'idea',
+    'ticker': 'TSLA',
+    'strategy_type': 'put_credit_spread',
+    'direction': 'bullish',
+    'thesis_notes': 'Watching the 50-day reclaim. If it holds through the week '
+        'I want to sell puts into the strength — still raw, no levels set.',
+    'entry_iv_rank': 58,
+    'tags': ['momentum'],
+    'created_at': '2026-06-12T14:00:00Z',
+  },
+  {
+    'id': 'd2',
+    'status': 'idea',
+    'ticker': 'XLE',
+    'strategy_type': 'long_call',
+    'direction': 'bullish',
+    'thesis_notes': 'Crude basing, energy lagging the tape. Early — sketching a '
+        'cheap upside play before IV catches a bid.',
+    'tags': ['macro', 'energy'],
+    'created_at': '2026-06-11T14:00:00Z',
+  },
 ];
 
 final _preFlight = <Map<String, dynamic>>[

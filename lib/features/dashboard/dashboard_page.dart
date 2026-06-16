@@ -24,12 +24,13 @@ class DashboardPage extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const _Reveal(order: 0, child: _TopSection()),
+              const _Reveal(order: 1, child: _EarlyIdeasSection()),
               const SizedBox(height: 32),
-              const _Reveal(order: 1, child: _IdeasSection()),
+              const _Reveal(order: 2, child: _IdeasSection()),
               const SizedBox(height: 32),
-              const _Reveal(order: 2, child: _InFlightSection()),
+              const _Reveal(order: 3, child: _InFlightSection()),
               const SizedBox(height: 32),
-              const _Reveal(order: 3, child: _RecentlyLanded()),
+              const _Reveal(order: 4, child: _RecentlyLanded()),
             ],
           ),
         ),
@@ -192,6 +193,42 @@ class _WinRate extends StatelessWidget {
       child: Text(
         label,
         style: KFonts.data(size: 13, color: KColors.memberTextSecondary),
+      ),
+    );
+  }
+}
+
+/// Average winner / average loser for a section — green over red, behind a
+/// muted "avg" so it reads apart from the running total. A side with no
+/// trades yet shows an em dash.
+class _AvgWinLoss extends StatelessWidget {
+  const _AvgWinLoss(this.stats);
+
+  final LandedStats stats;
+
+  static String _amt(double? v) =>
+      v == null ? '—' : '${v >= 0 ? '+' : '−'}\$${NumberFormat('#,##0').format(v.abs())}';
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = KFonts.data(size: 13, color: KColors.memberTextSecondary);
+    return Tooltip(
+      message: 'avg win / avg loss',
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: 'avg ', style: muted),
+            TextSpan(
+              text: _amt(stats.avgWin),
+              style: KFonts.data(size: 13, color: KColors.positive),
+            ),
+            TextSpan(text: ' / ', style: muted),
+            TextSpan(
+              text: _amt(stats.avgLoss),
+              style: KFonts.data(size: 13, color: KColors.negative),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -521,6 +558,40 @@ class _MacroTileCard extends StatelessWidget {
   }
 }
 
+// ---- Early Ideas (status = 'idea', Inner Circle perk) ----
+
+class _EarlyIdeasSection extends ConsumerWidget {
+  const _EarlyIdeasSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ideas = ref.watch(earlyIdeasProvider);
+    // Hidden whenever there's nothing to show: observers and analysts get an
+    // empty list via RLS, so the section never renders an empty shell — only
+    // inner_circle members (and admin) with live ideas see it. The leading gap
+    // is owned here so a hidden section leaves no double spacing above
+    // pre-flight.
+    return ideas.maybeWhen(
+      data: (data) => data.isEmpty
+          ? const SizedBox.shrink()
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 32),
+                _SectionHeader('Ideas (${data.length})'),
+                const SizedBox(height: 4),
+                CardWrap(
+                  maxWidth: 348,
+                  count: data.length,
+                  itemBuilder: (_, i, w) => _IdeaCard(trade: data[i], width: w),
+                ),
+              ],
+            ),
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+}
+
 // ---- Ideas (pre-flight) ----
 
 class _IdeasSection extends ConsumerWidget {
@@ -829,6 +900,8 @@ class _RecentlyLanded extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _WinRate(st),
+                          const SizedBox(width: 14),
+                          _AvgWinLoss(st),
                           const SizedBox(width: 14),
                           _PnlTotal(st.realizedPnl),
                         ],

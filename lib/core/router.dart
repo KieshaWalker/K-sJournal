@@ -9,6 +9,7 @@ import '../features/auth/landing_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/register_page.dart';
 import '../features/auth/tier_selection_page.dart';
+import '../features/admin/account_page.dart';
 import '../features/admin/invites_page.dart';
 import '../features/admin/trade_entry_page.dart';
 import '../features/community/community_page.dart';
@@ -130,6 +131,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
               path: '/admin/invites',
               builder: (_, _) => const InvitesPage()),
+          GoRoute(
+              path: '/admin/account',
+              builder: (_, _) => const AccountPage()),
         ],
       ),
     ],
