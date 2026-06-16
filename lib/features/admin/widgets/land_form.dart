@@ -5,6 +5,7 @@ import '../../../core/theme.dart';
 import '../../../core/widgets/photo_attach.dart';
 import '../providers/admin_trade_providers.dart';
 import 'form_helpers.dart';
+import 'trade_photos_field.dart';
 import 'underlying_legs_field.dart';
 
 class LandFormDialog extends StatefulWidget {
@@ -23,6 +24,7 @@ class _LandFormDialogState extends State<LandFormDialog> {
   final _exitNotes = TextEditingController();
   final _photo = PhotoAttachController();
   final _underlying = UnderlyingLegsController();
+  final _photos = TradePhotosController();
   bool _imageCleared = false;
   String? _outcomeOverride;
   String? _error;
@@ -31,7 +33,9 @@ class _LandFormDialogState extends State<LandFormDialog> {
   @override
   void initState() {
     super.initState();
-    _underlying.loadFor(widget.trade['id'] as String);
+    final id = widget.trade['id'] as String;
+    _underlying.loadFor(id);
+    _photos.loadFor(id);
   }
 
   bool get _isCredit =>
@@ -71,9 +75,11 @@ class _LandFormDialogState extends State<LandFormDialog> {
       setState(() => _error = 'Exit date must be on or after the entry date.');
       return;
     }
-    final underlyingError = _underlying.validate(requireExit: true);
-    if (underlyingError != null) {
-      setState(() => _error = underlyingError);
+    // Exit is optional per underlying row: close the ones you're exiting,
+    // leave the rest open even though the options leg is landing.
+    final inputError = _underlying.validate() ?? _photos.validate();
+    if (inputError != null) {
+      setState(() => _error = inputError);
       return;
     }
     setState(() {
@@ -98,6 +104,7 @@ class _LandFormDialogState extends State<LandFormDialog> {
           'image_url': null,
       }).eq('id', tradeId);
       await _underlying.persist(tradeId);
+      await _photos.persist(tradeId);
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
       setState(() => _error = 'Save failed: $e');
@@ -168,6 +175,15 @@ class _LandFormDialogState extends State<LandFormDialog> {
           showExit: true,
           onChanged: () => setState(() {}),
         ),
+        const Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: Text(
+            'Set an exit to close a stock position; leave it blank to keep '
+            'that position open after the options land.',
+            style:
+                TextStyle(fontSize: 11, color: KColors.memberTextSecondary),
+          ),
+        ),
         const SizedBox(height: 16),
         SegmentedButton<String>(
           segments: const [
@@ -215,6 +231,8 @@ class _LandFormDialogState extends State<LandFormDialog> {
             ),
           ),
         ]),
+        const SizedBox(height: 16),
+        TradePhotosField(controller: _photos),
       ],
     );
   }

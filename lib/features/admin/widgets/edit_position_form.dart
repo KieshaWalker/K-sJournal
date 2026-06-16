@@ -4,6 +4,10 @@ import '../../../core/supabase_client.dart';
 import '../../../core/theme.dart';
 import '../providers/admin_trade_providers.dart';
 import 'form_helpers.dart';
+import 'trade_photos_field.dart';
+import 'underlying_legs_field.dart';
+
+String _numStr(Object? v) => v == null ? '' : '$v';
 
 class _LegEdit {
   _LegEdit(Map<String, dynamic> row)
@@ -33,9 +37,11 @@ class _LegEdit {
 }
 
 /// Correct an in-flight position that was keyed in wrong: strategy,
-/// direction, fill details, thesis, and the existing legs. Entry greeks
-/// stay out of reach — the DB keeps them immutable once set — and legs
-/// can only be corrected here, not added or removed.
+/// direction, fill details, thesis, tags, the existing option legs, and the
+/// underlying stock positions (which can be added, edited, or removed, and
+/// their live marks updated). Entry greeks stay out of reach — the DB keeps
+/// them immutable once set — and option legs can only be corrected here, not
+/// added or removed.
 class EditPositionDialog extends StatefulWidget {
   const EditPositionDialog({super.key, required this.trade});
 
@@ -58,8 +64,27 @@ class _EditPositionDialogState extends State<EditPositionDialog> {
       text: '${widget.trade['position_size_usd'] ?? ''}');
   late final _thesis = TextEditingController(
       text: (widget.trade['thesis_notes'] as String?) ?? '');
+  late final _tags = TextEditingController(
+      text: (widget.trade['tags'] as List?)?.cast<String>().join(', ') ?? '');
+  late final _curDelta =
+      TextEditingController(text: _numStr(widget.trade['current_delta']));
+  late final _curGamma =
+      TextEditingController(text: _numStr(widget.trade['current_gamma']));
+  late final _curTheta =
+      TextEditingController(text: _numStr(widget.trade['current_theta']));
+  late final _curVega =
+      TextEditingController(text: _numStr(widget.trade['current_vega']));
+  late final _curIv =
+      TextEditingController(text: _numStr(widget.trade['current_iv']));
+  late final _curPrice =
+      TextEditingController(text: _numStr(widget.trade['current_price']));
   late String _strategy = widget.trade['strategy_type'] as String;
   late String _direction = widget.trade['direction'] as String;
+  final _underlying = UnderlyingLegsController();
+  final _photos = TradePhotosController();
+  // Snapshot of the greek fields as loaded, to tell whether the admin touched
+  // them (only then do we re-stamp today's greeks snapshot).
+  late final List<String> _greekOrig;
   List<_LegEdit>? _legs;
   String? _error;
   bool _busy = false;
@@ -68,6 +93,13 @@ class _EditPositionDialogState extends State<EditPositionDialog> {
   void initState() {
     super.initState();
     _loadLegs();
+    final id = widget.trade['id'] as String;
+    _underlying.loadFor(id);
+    _photos.loadFor(id);
+    _greekOrig = [
+      _curDelta.text, _curGamma.text, _curTheta.text,
+      _curVega.text, _curIv.text, _curPrice.text,
+    ];
   }
 
   @override
@@ -78,10 +110,28 @@ class _EditPositionDialogState extends State<EditPositionDialog> {
     _stockPrice.dispose();
     _positionSize.dispose();
     _thesis.dispose();
+    _tags.dispose();
+    _curDelta.dispose();
+    _curGamma.dispose();
+    _curTheta.dispose();
+    _curVega.dispose();
+    _curIv.dispose();
+    _curPrice.dispose();
     for (final leg in _legs ?? const <_LegEdit>[]) {
       leg.dispose();
     }
     super.dispose();
+  }
+
+  bool get _greeksTouched {
+    final now = [
+      _curDelta.text, _curGamma.text, _curTheta.text,
+      _curVega.text, _curIv.text, _curPrice.text,
+    ];
+    for (var i = 0; i < now.length; i++) {
+      if (now[i].trim() != _greekOrig[i].trim()) return true;
+    }
+    return false;
   }
 
   Future<void> _loadLegs() async {
@@ -132,13 +182,19 @@ class _EditPositionDialogState extends State<EditPositionDialog> {
         return;
       }
     }
+    final inputError = _underlying.validate() ?? _photos.validate();
+    if (inputError != null) {
+      setState(() => _error = inputError);
+      return;
+    }
 
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      await supabase.from('trades').update({
+      final tradeId = widget.trade['id'] as String;
+      final Map<String, dynamic> updates = {
         'strategy_type': _strategy,
         'direction': _direction,
         'entry_date': _entryDate.text.trim(),
@@ -147,7 +203,33 @@ class _EditPositionDialogState extends State<EditPositionDialog> {
         'stock_price_at_entry': parseNum(_stockPrice),
         'position_size_usd': parseNum(_positionSize),
         'thesis_notes': _thesis.text.trim(),
-      }).eq('id', widget.trade['id'] as String);
+        'tags': _tags.text.trim().isEmpty
+            ? null
+            : _tags.text.split(',').map((t) => t.trim()).toList(),
+      };
+      // Touching the greek fields records/replaces TODAY's snapshot (the sync
+      // trigger turns this current_* write into a trade_greeks row); the cost-
+      // to-close convention matches the land form / pull.
+      if (_greeksTouched) {
+        final isCredit = creditStrategies.contains(_strategy);
+        final cur = parseNum(_curPrice);
+        final unrealized = (cur != null)
+            ? double.parse(
+                ((isCredit ? entryPrice - cur : cur - entryPrice) * qty * 100)
+                    .toStringAsFixed(2))
+            : null;
+        updates.addAll({
+          'current_delta': parseNum(_curDelta),
+          'current_gamma': parseNum(_curGamma),
+          'current_theta': parseNum(_curTheta),
+          'current_vega': parseNum(_curVega),
+          'current_iv': parseNum(_curIv),
+          'current_price': cur,
+          'current_as_of': DateTime.now().toIso8601String().split('T').first,
+          'unrealized_pnl': unrealized,
+        });
+      }
+      await supabase.from('trades').update(updates).eq('id', tradeId);
       for (final leg in _legs ?? const <_LegEdit>[]) {
         await supabase.from('trade_legs').update({
           'action': leg.action,
@@ -158,6 +240,8 @@ class _EditPositionDialogState extends State<EditPositionDialog> {
           'entry_price': parseNum(leg.fill),
         }).eq('id', leg.id);
       }
+      await _underlying.persist(tradeId);
+      await _photos.persist(tradeId);
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
       setState(() => _error = 'Save failed: $e');
@@ -252,6 +336,14 @@ class _EditPositionDialogState extends State<EditPositionDialog> {
           maxLines: 5,
           decoration: const InputDecoration(labelText: 'Thesis Notes'),
         ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _tags,
+          decoration: const InputDecoration(
+            labelText: 'Tags',
+            helperText: 'Comma-separated: earnings, tech, high_iv',
+          ),
+        ),
         const SizedBox(height: 20),
         const Text('TRADE LEGS',
             style: TextStyle(
@@ -280,6 +372,45 @@ class _EditPositionDialogState extends State<EditPositionDialog> {
           'match the corrected contract.',
           style: TextStyle(fontSize: 12, color: KColors.memberTextSecondary),
         ),
+        const SizedBox(height: 20),
+        UnderlyingLegsField(controller: _underlying, showCurrent: true),
+        const SizedBox(height: 20),
+        const Text('CURRENT GREEKS (AS OF TODAY)',
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.5,
+                color: KColors.memberTextSecondary)),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(child: NumField(controller: _curDelta, label: 'Delta')),
+          const SizedBox(width: 12),
+          Expanded(child: NumField(controller: _curGamma, label: 'Gamma')),
+          const SizedBox(width: 12),
+          Expanded(child: NumField(controller: _curTheta, label: 'Theta')),
+          const SizedBox(width: 12),
+          Expanded(child: NumField(controller: _curVega, label: 'Vega')),
+          const SizedBox(width: 12),
+          Expanded(
+              child: NumField(controller: _curIv, label: 'IV', hint: '0.38')),
+          const SizedBox(width: 12),
+          Expanded(
+              child: NumField(
+                  controller: _curPrice,
+                  label: 'Price',
+                  hint: 'net mark to close')),
+        ]),
+        const Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: Text(
+            'Editing any greek records today\'s snapshot (replacing an earlier '
+            'one from today). Past days are frozen; a later pull overwrites only '
+            'today.',
+            style: TextStyle(fontSize: 11, color: KColors.memberTextSecondary),
+          ),
+        ),
+        const SizedBox(height: 20),
+        TradePhotosField(controller: _photos),
       ],
     );
   }

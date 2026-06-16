@@ -505,6 +505,8 @@ class _MacroPulse extends ConsumerWidget {
             children: [for (final t in data) _MacroTileCard(tile: t)],
           ),
         ),
+        const SizedBox(height: 28),
+        const _MacroCalendar(),
       ],
     );
   }
@@ -555,6 +557,192 @@ class _MacroTileCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// ---- On the Calendar (macro catalysts, beneath Macro Pulse) ----
+
+class _MacroCalendar extends ConsumerWidget {
+  const _MacroCalendar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final events = ref.watch(macroEventsProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionLabel('On the Calendar'),
+        const SizedBox(height: 12),
+        events.when(
+          loading: () => const SizedBox(
+            height: 72,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => const _MessageCard('Could not load the calendar.',
+              color: KColors.negative),
+          data: (rows) => rows.isEmpty
+              ? const _MessageCard('Nothing on the calendar.')
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var i = 0; i < rows.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 12),
+                      _EventCard(event: rows[i]),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EventCard extends StatelessWidget {
+  const _EventCard({required this.event});
+  final MacroEvent event;
+
+  /// "TODAY · JUN 16", "TOMORROW · JUN 17", or "TUE · JUN 17".
+  static String _when(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = DateTime(d.year, d.month, d.day).difference(today).inDays;
+    final rel = diff == 0
+        ? 'TODAY'
+        : diff == 1
+            ? 'TOMORROW'
+            : DateFormat('EEE').format(d).toUpperCase();
+    return '$rel · ${DateFormat('MMM d').format(d).toUpperCase()}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GlossyCard(
+      radius: 14,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.event_outlined,
+                  size: 13, color: KColors.memberAccent),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  _when(event.eventDate) +
+                      (event.eventTime == null ? '' : '  ·  ${event.eventTime}'),
+                  style: KFonts.data(
+                    size: 11,
+                    weight: FontWeight.w600,
+                    color: KColors.memberAccent,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (event.category != null) ...[
+                const SizedBox(width: 8),
+                _CategoryTag(event.category!),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(event.title, style: KFonts.heading(size: 16)),
+          if ((event.detail ?? '').isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              event.detail!,
+              style: const TextStyle(fontSize: 13, height: 1.5),
+            ),
+          ],
+          if (event.scenarios.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final s in event.scenarios) _ScenarioChip(scenario: s),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A short uppercase tag — the event's category (FOMC, CPI, …).
+class _CategoryTag extends StatelessWidget {
+  const _CategoryTag(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: KColors.memberAccent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: KColors.memberAccent.withValues(alpha: 0.30)),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1,
+          color: KColors.memberAccent,
+        ),
+      ),
+    );
+  }
+}
+
+/// One outcome chip: the condition (e.g. "Cut") in ink, the direction it
+/// carries (e.g. "↗ Bullish") in the matching P&L colour.
+class _ScenarioChip extends StatelessWidget {
+  const _ScenarioChip({required this.scenario});
+  final EventScenario scenario;
+
+  static const _effects = {
+    'bullish': (KColors.positive, '↗', 'Bullish'),
+    'bearish': (KColors.negative, '↘', 'Bearish'),
+    'neutral': (KColors.neutral, '→', 'Neutral'),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, arrow, word) =
+        _effects[scenario.effect] ?? _effects['neutral']!;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: scenario.label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: KColors.memberTextPrimary,
+              ),
+            ),
+            TextSpan(
+              text: '  $arrow $word',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

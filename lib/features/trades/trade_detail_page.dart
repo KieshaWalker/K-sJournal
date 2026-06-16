@@ -186,6 +186,10 @@ class _TradeDetail extends StatelessWidget {
           const SizedBox(height: 16),
           _UnderlyingCard(rows: underlyingRowsOf(t)),
         ],
+        if (_childRows(t, 'trade_photos').isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _PhotoGallery(photos: _childRows(t, 'trade_photos')),
+        ],
         if (inFlight || landed) ...[
           const SizedBox(height: 16),
           _StatsCard(
@@ -252,6 +256,10 @@ class _TradeDetail extends StatelessWidget {
           ],
         ],
         if (inFlight || landed) ...[
+          if (_childRows(t, 'trade_greeks').isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _GreeksHistoryCard(rows: _childRows(t, 'trade_greeks')),
+          ],
           const SizedBox(height: 16),
           _LegsCard(tradeId: tradeId),
           const SizedBox(height: 16),
@@ -473,6 +481,79 @@ class _UnderlyingCard extends StatelessWidget {
     final close = r['exit_price'] ?? r['current_price'];
     final tail = close == null ? '' : ' → ${_num(close, 2)}';
     return '$side ${r['shares']} sh @ ${_num(r['entry_price'], 2)}$tail';
+  }
+}
+
+// ---- Photos & greeks history ----
+
+/// Embedded child rows of a trade map (e.g. `trade_photos`, `trade_greeks`),
+/// or empty when absent.
+List<Map<String, dynamic>> _childRows(Map<String, dynamic> t, String key) {
+  final raw = t[key];
+  return raw is List
+      ? [for (final r in raw) Map<String, dynamic>.from(r as Map)]
+      : const [];
+}
+
+/// Dated photo gallery — newest first, each shot under its date.
+class _PhotoGallery extends StatelessWidget {
+  const _PhotoGallery({required this.photos});
+
+  final List<Map<String, dynamic>> photos;
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...photos]
+      ..sort((a, b) => ('${b['photo_date']}').compareTo('${a['photo_date']}'));
+    return GlossyCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _Label('Photos'),
+          for (final p in sorted) ...[
+            const SizedBox(height: 12),
+            Text('${p['photo_date']}',
+                style: KFonts.data(
+                    size: 12, color: KColors.memberTextSecondary)),
+            AttachedPhoto(url: p['image_url'] as String, maxHeight: 360),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Dated greeks/IV/price snapshots — newest first; one frozen row per day.
+class _GreeksHistoryCard extends StatelessWidget {
+  const _GreeksHistoryCard({required this.rows});
+
+  final List<Map<String, dynamic>> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...rows]
+      ..sort((a, b) =>
+          ('${b['snapshot_date']}').compareTo('${a['snapshot_date']}'));
+    return GlossyCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _Label('Greeks History'),
+          const SizedBox(height: 12),
+          for (final g in sorted)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                '${g['snapshot_date']}   '
+                'Δ ${_num(g['delta'], 2)}   Γ ${_num(g['gamma'], 3)}   '
+                'Θ ${_num(g['theta'], 2)}   V ${_num(g['vega'], 2)}   '
+                'IV ${_num(g['iv'], 2)}   @ ${_num(g['price'], 2)}',
+                style: KFonts.data(size: 12),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 

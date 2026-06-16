@@ -63,16 +63,17 @@ class UnderlyingLegsController extends ChangeNotifier {
   }
 
   /// Live realized P&L and cost basis from the editor's current text — used by
-  /// the land form's preview before the rows are persisted.
+  /// the land form's preview before the rows are persisted. Only positions
+  /// with an exit price (i.e. being closed at this landing) count; rows left
+  /// open contribute nothing to realized P&L or its basis.
   ({double pnl, double basis}) realizedFromInputs() {
     var pnl = 0.0, basis = 0.0;
     for (final r in rows) {
       final shares = double.tryParse(r.shares.text.trim());
       final entry = double.tryParse(r.entry.text.trim());
-      if (shares == null || entry == null) continue;
-      basis += entry * shares;
       final exit = double.tryParse(r.exit.text.trim());
-      if (exit == null) continue;
+      if (shares == null || entry == null || exit == null) continue;
+      basis += entry * shares;
       pnl += (exit - entry) * shares * (r.side == 'short' ? -1 : 1);
     }
     return (pnl: pnl, basis: basis);

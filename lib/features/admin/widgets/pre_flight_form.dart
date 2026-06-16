@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/supabase_client.dart';
 import '../providers/admin_trade_providers.dart';
 import 'form_helpers.dart';
+import 'trade_photos_field.dart';
 import 'underlying_legs_field.dart';
 
 class PreFlightFormDialog extends StatefulWidget {
@@ -22,13 +23,16 @@ class _PreFlightFormDialogState extends State<PreFlightFormDialog> {
   final _ivPct = TextEditingController();
   late String _strategy = widget.trade['strategy_type'] as String;
   final _underlying = UnderlyingLegsController();
+  final _photos = TradePhotosController();
   String? _error;
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
-    _underlying.loadFor(widget.trade['id'] as String);
+    final id = widget.trade['id'] as String;
+    _underlying.loadFor(id);
+    _photos.loadFor(id);
   }
 
   Future<void> _autofill() async {
@@ -64,9 +68,9 @@ class _PreFlightFormDialogState extends State<PreFlightFormDialog> {
           () => _error = 'Pre-flight thesis must be at least 50 characters.');
       return;
     }
-    final underlyingError = _underlying.validate();
-    if (underlyingError != null) {
-      setState(() => _error = underlyingError);
+    final inputError = _underlying.validate() ?? _photos.validate();
+    if (inputError != null) {
+      setState(() => _error = inputError);
       return;
     }
     setState(() {
@@ -84,6 +88,7 @@ class _PreFlightFormDialogState extends State<PreFlightFormDialog> {
         'thesis_notes': _thesis.text.trim(),
       }).eq('id', tradeId);
       await _underlying.persist(tradeId);
+      await _photos.persist(tradeId);
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
       setState(() => _error = 'Save failed: $e');
@@ -147,6 +152,8 @@ class _PreFlightFormDialogState extends State<PreFlightFormDialog> {
         ),
         const SizedBox(height: 16),
         UnderlyingLegsField(controller: _underlying),
+        const SizedBox(height: 16),
+        TradePhotosField(controller: _photos),
       ],
     );
   }

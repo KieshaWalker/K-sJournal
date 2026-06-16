@@ -32,7 +32,9 @@ final tradeDetailProvider = FutureProvider.autoDispose
   final rows = await supabase
       .from('trades')
       .select('*, trade_underlying_legs(side, shares, entry_price, '
-          'current_price, exit_price)')
+          'current_price, exit_price), trade_photos(image_url, photo_date), '
+          'trade_greeks(snapshot_date, delta, gamma, theta, vega, iv, price, '
+          'unrealized_pnl)')
       .eq('id', tradeId)
       .limit(1);
   return rows.isEmpty ? null : rows.first;

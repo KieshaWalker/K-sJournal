@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/supabase_client.dart';
 import '../../core/theme.dart';
@@ -11,9 +12,11 @@ import 'widgets/idea_form.dart';
 import 'widgets/in_flight_form.dart';
 import 'widgets/insight_form.dart';
 import 'widgets/land_form.dart';
+import 'widgets/macro_event_form.dart';
 import 'widgets/new_trade_picker.dart';
 import 'widgets/pre_flight_form.dart';
 import 'widgets/pull_market_data_button.dart';
+import 'widgets/vix_editor.dart';
 import 'widgets/working_notes.dart';
 
 class TradeEntryPage extends ConsumerWidget {
@@ -197,6 +200,10 @@ class TradeEntryPage extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
               const _InsightsSection(),
+              const SizedBox(height: 32),
+              const _MacroPulseSection(),
+              const SizedBox(height: 32),
+              const _CalendarSection(),
               const SizedBox(height: 32),
               const WorkingNotesSection(),
             ],
@@ -494,6 +501,208 @@ class _InsightsSection extends ConsumerWidget {
       await supabase.from('insights').delete().eq('id', i['id'] as String);
       ref.invalidate(adminInsightsProvider);
       ref.invalidate(insightsFeedProvider);
+    }
+  }
+}
+
+/// Manual macro inputs the market-data pull can't reach. For now that's VIX,
+/// which the external project doesn't carry — K types the level here and it
+/// rides the dashboard's Macro Pulse like every other tile.
+class _MacroPulseSection extends ConsumerWidget {
+  const _MacroPulseSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final vix = ref.watch(latestVixProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'MACRO PULSE',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.5,
+            color: KColors.memberTextSecondary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        vix.maybeWhen(
+          data: (row) {
+            final level = (row?['close'] as num?)?.toDouble();
+            final asOf = row?['snapshot_date'] as String?;
+            return Card(
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.show_chart,
+                    size: 18, color: KColors.accent),
+                title: const Text('VIX', style: TextStyle(fontSize: 13)),
+                subtitle: Text(
+                  asOf == null ? 'Not set yet' : 'as of $asOf',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      level == null ? '—' : level.toStringAsFixed(2),
+                      style: KFonts.data(size: 14),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Set VIX',
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      onPressed: () => showDialog<bool>(
+                        context: context,
+                        builder: (_) => VixEditorDialog(current: row),
+                      ).then((_) {
+                        ref.invalidate(latestVixProvider);
+                        ref.invalidate(macroTilesProvider);
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+          orElse: () => const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+/// The macro calendar K keeps for members — add, edit, and clear catalysts
+/// shown beneath the dashboard's Macro Pulse.
+class _CalendarSection extends ConsumerWidget {
+  const _CalendarSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final events = ref.watch(adminMacroEventsProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'ON THE CALENDAR',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.5,
+                color: KColors.memberTextSecondary,
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              icon: const Icon(Icons.add, size: 16, color: KColors.accent),
+              label: const Text('Add Event',
+                  style: TextStyle(fontSize: 12, color: KColors.accent)),
+              onPressed: () => showDialog(
+                context: context,
+                builder: (_) => const MacroEventFormDialog(),
+              ).then((_) {
+                ref.invalidate(adminMacroEventsProvider);
+                ref.invalidate(macroEventsProvider);
+              }),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        events.maybeWhen(
+          data: (rows) => rows.isEmpty
+              ? const Text(
+                  'Nothing scheduled.',
+                  style: TextStyle(
+                    color: KColors.memberTextSecondary,
+                    fontSize: 13,
+                  ),
+                )
+              : Card(
+                  child: Column(
+                    children: [
+                      for (final e in rows) _eventTile(context, ref, e),
+                    ],
+                  ),
+                ),
+          orElse: () => const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+
+  Widget _eventTile(
+      BuildContext context, WidgetRef ref, Map<String, dynamic> e) {
+    final date = DateTime.tryParse(e['event_date'] as String? ?? '');
+    final time = e['event_time'] as String?;
+    final category = e['category'] as String?;
+    final when = [
+      if (date != null) DateFormat('EEE, MMM d').format(date),
+      ?time,
+      ?category,
+    ].join('  ·  ');
+    return ListTile(
+      dense: true,
+      leading: const Icon(Icons.event_outlined, size: 16, color: KColors.accent),
+      title: Text(
+        e['title'] as String? ?? '',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 13),
+      ),
+      subtitle: Text(when, style: const TextStyle(fontSize: 11)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Edit event',
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => MacroEventFormDialog(event: e),
+            ).then((_) {
+              ref.invalidate(adminMacroEventsProvider);
+              ref.invalidate(macroEventsProvider);
+            }),
+          ),
+          IconButton(
+            tooltip: 'Delete event',
+            icon: const Icon(Icons.delete_outline, size: 18),
+            onPressed: () => _confirmDelete(context, ref, e),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> e,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete "${e['title']}"?'),
+        content: const Text('It comes off the dashboard calendar immediately.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete',
+                style: TextStyle(color: KColors.negative)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await supabase.from('macro_events').delete().eq('id', e['id'] as String);
+      ref.invalidate(adminMacroEventsProvider);
+      ref.invalidate(macroEventsProvider);
     }
   }
 }

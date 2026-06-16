@@ -5,6 +5,7 @@ import '../../../core/theme.dart';
 import '../../../core/widgets/photo_attach.dart';
 import '../providers/admin_trade_providers.dart';
 import 'form_helpers.dart';
+import 'trade_photos_field.dart';
 import 'underlying_legs_field.dart';
 
 class IdeaFormDialog extends StatefulWidget {
@@ -27,6 +28,7 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
       text: (widget.trade?['tags'] as List?)?.cast<String>().join(', ') ?? '');
   final _photo = PhotoAttachController();
   final _underlying = UnderlyingLegsController();
+  final _photos = TradePhotosController();
   late String _direction = widget.trade?['direction'] as String? ?? 'bearish';
   late String _strategy =
       widget.trade?['strategy_type'] as String? ?? 'put_spread';
@@ -38,7 +40,11 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
   @override
   void initState() {
     super.initState();
-    if (_isEdit) _underlying.loadFor(widget.trade!['id'] as String);
+    if (_isEdit) {
+      final id = widget.trade!['id'] as String;
+      _underlying.loadFor(id);
+      _photos.loadFor(id);
+    }
   }
 
   Future<void> _save() async {
@@ -51,9 +57,9 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
       setState(() => _error = 'Thesis must be at least 20 characters.');
       return;
     }
-    final underlyingError = _underlying.validate();
-    if (underlyingError != null) {
-      setState(() => _error = underlyingError);
+    final inputError = _underlying.validate() ?? _photos.validate();
+    if (inputError != null) {
+      setState(() => _error = inputError);
       return;
     }
     setState(() {
@@ -87,6 +93,7 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
         tradeId = row['id'] as String;
       }
       await _underlying.persist(tradeId);
+      await _photos.persist(tradeId);
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
       setState(() => _error = 'Save failed: $e');
@@ -149,6 +156,8 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
         ),
         const SizedBox(height: 16),
         UnderlyingLegsField(controller: _underlying),
+        const SizedBox(height: 16),
+        TradePhotosField(controller: _photos),
         const SizedBox(height: 8),
         Row(children: [
           PhotoAttachField(

@@ -5,6 +5,7 @@ import '../../../core/theme.dart';
 import '../../../core/widgets/photo_attach.dart';
 import '../providers/admin_trade_providers.dart';
 import 'form_helpers.dart';
+import 'trade_photos_field.dart';
 import 'underlying_legs_field.dart';
 
 class _LegInput {
@@ -40,6 +41,7 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
   final _legs = <_LegInput>[_LegInput()];
   final _photo = PhotoAttachController();
   final _underlying = UnderlyingLegsController();
+  final _photos = TradePhotosController();
   bool _imageCleared = false;
   String? _error;
   bool _busy = false;
@@ -50,7 +52,9 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
   @override
   void initState() {
     super.initState();
-    _underlying.loadFor(widget.trade['id'] as String);
+    final id = widget.trade['id'] as String;
+    _underlying.loadFor(id);
+    _photos.loadFor(id);
   }
 
   void _autoPositionSize() {
@@ -127,9 +131,9 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
         return;
       }
     }
-    final underlyingError = _underlying.validate();
-    if (underlyingError != null) {
-      setState(() => _error = underlyingError);
+    final inputError = _underlying.validate() ?? _photos.validate();
+    if (inputError != null) {
+      setState(() => _error = inputError);
       return;
     }
 
@@ -171,6 +175,7 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
           'image_url': null,
       }).eq('id', tradeId);
       await _underlying.persist(tradeId);
+      await _photos.persist(tradeId);
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
       setState(() => _error = 'Save failed: $e');
@@ -275,6 +280,8 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
         for (var i = 0; i < _legs.length; i++) _legRow(i),
         const SizedBox(height: 20),
         UnderlyingLegsField(controller: _underlying, showCurrent: true),
+        const SizedBox(height: 20),
+        TradePhotosField(controller: _photos),
         const SizedBox(height: 8),
         Row(children: [
           PhotoAttachField(

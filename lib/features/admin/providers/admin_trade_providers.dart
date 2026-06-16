@@ -49,6 +49,37 @@ final adminLandedProvider =
       .limit(10);
 });
 
+/// Latest manually-entered VIX snapshot (close + day change + date), or null
+/// when K hasn't set one yet. Feeds the Workbench VIX editor's prefill and
+/// "as of" line.
+final latestVixProvider =
+    FutureProvider<Map<String, dynamic>?>((ref) async {
+  final rows = await supabase
+      .from('market_snapshots')
+      .select('close, price_change_pct, snapshot_date')
+      .eq('ticker', 'VIX')
+      .order('snapshot_date', ascending: false)
+      .limit(1);
+  final list = List<Map<String, dynamic>>.from(rows);
+  return list.isEmpty ? null : list.first;
+});
+
+/// Upcoming macro-calendar events for the Workbench — today onward, soonest
+/// first — so K manages what members are about to see.
+final adminMacroEventsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final today = DateTime.now().toIso8601String().split('T').first;
+  final rows = await supabase
+      .from('macro_events')
+      .select('id, title, detail, event_date, event_time, category, '
+          'scenarios, is_active, display_order')
+      .gte('event_date', today)
+      .order('event_date')
+      .order('display_order')
+      .limit(50);
+  return List<Map<String, dynamic>>.from(rows);
+});
+
 const strategyTypes = [
   'long_call', 'long_put', 'short_call', 'short_put',
   'call_spread', 'put_spread', 'iron_condor', 'iron_butterfly',

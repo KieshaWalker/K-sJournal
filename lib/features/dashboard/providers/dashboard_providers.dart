@@ -74,6 +74,71 @@ final macroTilesProvider = FutureProvider<List<MacroTile>>((ref) async {
   ];
 });
 
+/// One directional outcome for a calendar event: what happens, and which way
+/// it cuts. [effect] is one of bullish | neutral | bearish.
+class EventScenario {
+  const EventScenario({required this.label, required this.effect});
+
+  final String label;
+  final String effect;
+
+  factory EventScenario.fromJson(Map<String, dynamic> j) => EventScenario(
+        label: (j['label'] as String?) ?? '',
+        effect: (j['effect'] as String?) ?? 'neutral',
+      );
+}
+
+/// A dated market catalyst on K's docket — an FOMC decision, a CPI print, a
+/// marquee earnings date. Shown beneath the Macro Pulse tiles.
+class MacroEvent {
+  const MacroEvent({
+    required this.id,
+    required this.title,
+    this.detail,
+    required this.eventDate,
+    this.eventTime,
+    this.category,
+    this.scenarios = const [],
+  });
+
+  final String id;
+  final String title;
+  final String? detail;
+  final DateTime eventDate;
+  final String? eventTime;
+  final String? category;
+  final List<EventScenario> scenarios;
+
+  factory MacroEvent.fromRow(Map<String, dynamic> r) => MacroEvent(
+        id: r['id'] as String,
+        title: r['title'] as String,
+        detail: r['detail'] as String?,
+        eventDate: DateTime.parse(r['event_date'] as String),
+        eventTime: r['event_time'] as String?,
+        category: r['category'] as String?,
+        scenarios: [
+          for (final s in (r['scenarios'] as List? ?? const []))
+            EventScenario.fromJson(Map<String, dynamic>.from(s as Map)),
+        ],
+      );
+}
+
+/// Upcoming catalysts for the dashboard calendar — today onward, soonest
+/// first. Past events stay in the table but drop off the feed on their own.
+final macroEventsProvider = FutureProvider<List<MacroEvent>>((ref) async {
+  final today =
+      DateTime.now().toIso8601String().split('T').first;
+  final rows = await supabase
+      .from('macro_events')
+      .select('id, title, detail, event_date, event_time, category, scenarios')
+      .eq('is_active', true)
+      .gte('event_date', today)
+      .order('event_date')
+      .order('display_order')
+      .limit(8);
+  return [for (final r in rows) MacroEvent.fromRow(r)];
+});
+
 /// Published insights newest-first — macro takes and ticker notes alike.
 /// The dashboard shows them as one scrollable feed, so a single-name note
 /// no longer displaces the market-level take; the limit keeps the first
