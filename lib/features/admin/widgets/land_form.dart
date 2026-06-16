@@ -5,6 +5,7 @@ import '../../../core/theme.dart';
 import '../../../core/widgets/photo_attach.dart';
 import '../providers/admin_trade_providers.dart';
 import 'form_helpers.dart';
+import 'underlying_legs_field.dart';
 
 class LandFormDialog extends StatefulWidget {
   const LandFormDialog({super.key, required this.trade});
@@ -21,14 +22,23 @@ class _LandFormDialogState extends State<LandFormDialog> {
   final _exitPrice = TextEditingController();
   final _exitNotes = TextEditingController();
   final _photo = PhotoAttachController();
+  final _underlying = UnderlyingLegsController();
   bool _imageCleared = false;
   String? _outcomeOverride;
   String? _error;
   bool _busy = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _underlying.loadFor(widget.trade['id'] as String);
+  }
+
   bool get _isCredit =>
       creditStrategies.contains(widget.trade['strategy_type'] as String);
 
+  /// Combined realized P&L: the options leg plus every underlying position's
+  /// gain/loss, over the combined capital (option position size + share basis).
   ({double pnl, double pct})? _calc() {
     final exit = parseNum(_exitPrice);
     final entry = (widget.trade['entry_price'] as num?)?.toDouble();
@@ -37,9 +47,11 @@ class _LandFormDialogState extends State<LandFormDialog> {
     if (exit == null || entry == null || qty == null || size == null) {
       return null;
     }
-    final pnl =
-        (_isCredit ? (entry - exit) : (exit - entry)) * qty * 100;
-    return (pnl: pnl, pct: pnl / size * 100);
+    final optionsPnl = (_isCredit ? (entry - exit) : (exit - entry)) * qty * 100;
+    final u = _underlying.realizedFromInputs();
+    final pnl = optionsPnl + u.pnl;
+    final basis = size + u.basis;
+    return (pnl: pnl, pct: basis == 0 ? 0 : pnl / basis * 100);
   }
 
   String _autoOutcome(double pct) =>
@@ -59,11 +71,17 @@ class _LandFormDialogState extends State<LandFormDialog> {
       setState(() => _error = 'Exit date must be on or after the entry date.');
       return;
     }
+    final underlyingError = _underlying.validate(requireExit: true);
+    if (underlyingError != null) {
+      setState(() => _error = underlyingError);
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
+      final tradeId = widget.trade['id'] as String;
       final imageUrl = _photo.hasPhoto ? await _photo.upload() : null;
       await supabase.from('trades').update({
         'status': 'landed',
@@ -78,7 +96,8 @@ class _LandFormDialogState extends State<LandFormDialog> {
           'image_url': imageUrl
         else if (_imageCleared)
           'image_url': null,
-      }).eq('id', widget.trade['id'] as String);
+      }).eq('id', tradeId);
+      await _underlying.persist(tradeId);
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
       setState(() => _error = 'Save failed: $e');
@@ -143,6 +162,12 @@ class _LandFormDialogState extends State<LandFormDialog> {
               ),
             ]),
           ),
+        const SizedBox(height: 16),
+        UnderlyingLegsField(
+          controller: _underlying,
+          showExit: true,
+          onChanged: () => setState(() {}),
+        ),
         const SizedBox(height: 16),
         SegmentedButton<String>(
           segments: const [

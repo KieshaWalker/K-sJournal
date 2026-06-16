@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/supabase_client.dart';
 import '../providers/admin_trade_providers.dart';
 import 'form_helpers.dart';
+import 'underlying_legs_field.dart';
 
 class PreFlightFormDialog extends StatefulWidget {
   const PreFlightFormDialog({super.key, required this.trade});
@@ -20,8 +21,15 @@ class _PreFlightFormDialogState extends State<PreFlightFormDialog> {
   final _ivRank = TextEditingController();
   final _ivPct = TextEditingController();
   late String _strategy = widget.trade['strategy_type'] as String;
+  final _underlying = UnderlyingLegsController();
   String? _error;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _underlying.loadFor(widget.trade['id'] as String);
+  }
 
   Future<void> _autofill() async {
     final rows = await supabase
@@ -56,11 +64,17 @@ class _PreFlightFormDialogState extends State<PreFlightFormDialog> {
           () => _error = 'Pre-flight thesis must be at least 50 characters.');
       return;
     }
+    final underlyingError = _underlying.validate();
+    if (underlyingError != null) {
+      setState(() => _error = underlyingError);
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
+      final tradeId = widget.trade['id'] as String;
       await supabase.from('trades').update({
         'status': 'pre_flight',
         'strategy_type': _strategy,
@@ -68,7 +82,8 @@ class _PreFlightFormDialogState extends State<PreFlightFormDialog> {
         'entry_iv_rank': parseNum(_ivRank),
         'entry_iv_pct': parseNum(_ivPct),
         'thesis_notes': _thesis.text.trim(),
-      }).eq('id', widget.trade['id'] as String);
+      }).eq('id', tradeId);
+      await _underlying.persist(tradeId);
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
       setState(() => _error = 'Save failed: $e');
@@ -130,6 +145,8 @@ class _PreFlightFormDialogState extends State<PreFlightFormDialog> {
                 'sizing. Min 50 characters.',
           ),
         ),
+        const SizedBox(height: 16),
+        UnderlyingLegsField(controller: _underlying),
       ],
     );
   }

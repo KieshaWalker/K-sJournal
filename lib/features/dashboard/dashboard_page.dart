@@ -7,6 +7,8 @@ import '../../core/theme.dart';
 import '../../core/widgets/glossy_card.dart';
 import '../../core/widgets/photo_attach.dart';
 import '../../core/widgets/position_freshness.dart';
+import '../../core/widgets/tag_chips.dart';
+import '../../core/widgets/underlying_summary.dart';
 import '../trades/widgets/comment_counts.dart';
 import 'providers/dashboard_providers.dart';
 
@@ -679,29 +681,12 @@ class _IdeaCardState extends State<_IdeaCard> {
               overflow: _expanded ? null : TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13, height: 1.5),
             ),
+            if (tags.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              TagChips(tags),
+            ],
+            UnderlyingLine(t),
             if (_expanded) ...[
-              if (tags.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final tag in tags)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0x14C9A84C),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(tag,
-                            style: const TextStyle(
-                                fontSize: 11,
-                                color: KColors.memberAccent)),
-                      ),
-                  ],
-                ),
-              ],
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
@@ -774,8 +759,9 @@ class _InFlightCardState extends State<_InFlightCard> {
   @override
   Widget build(BuildContext context) {
     final t = widget.trade;
-    final pnl = (t['unrealized_pnl'] as num?)?.toDouble();
+    final pnl = combinedUnrealizedPnl(t);
     final pnlPct = (t['pnl_percent'] as num?)?.toDouble();
+    final tags = (t['tags'] as List?)?.cast<String>() ?? const [];
     final color = pnl == null
         ? KColors.neutral
         : pnl >= 0
@@ -820,6 +806,11 @@ class _InFlightCardState extends State<_InFlightCard> {
               trade: t,
               padding: const EdgeInsets.only(top: 8),
             ),
+            if (tags.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              TagChips(tags),
+            ],
+            UnderlyingLine(t),
             if (_expanded) ...[
               const SizedBox(height: 14),
               Row(
@@ -944,6 +935,7 @@ class _LandedCard extends StatelessWidget {
     final pct = (t['pnl_percent'] as num?)?.toDouble();
     final positive = (pnl ?? 0) >= 0;
     final outcome = t['outcome'] as String?;
+    final tags = (t['tags'] as List?)?.cast<String>() ?? const [];
     return GlossyCard(
       width: 220,
       radius: 14,
@@ -995,6 +987,11 @@ class _LandedCard extends StatelessWidget {
                 trade: t,
                 padding: const EdgeInsets.only(top: 8),
               ),
+              if (tags.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                TagChips(tags),
+              ],
+              UnderlyingLine(t),
             ],
           ),
         ),

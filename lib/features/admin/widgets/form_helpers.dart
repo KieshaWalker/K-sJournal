@@ -79,11 +79,16 @@ class FormDialogShell extends StatelessWidget {
 /// Numeric text field that parses to double on read.
 class NumField extends StatelessWidget {
   const NumField(
-      {super.key, required this.controller, required this.label, this.hint});
+      {super.key,
+      required this.controller,
+      required this.label,
+      this.hint,
+      this.onChanged});
 
   final TextEditingController controller;
   final String label;
   final String? hint;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +97,7 @@ class NumField extends StatelessWidget {
       keyboardType: const TextInputType.numberWithOptions(
           decimal: true, signed: true),
       decoration: InputDecoration(labelText: label, helperText: hint),
+      onChanged: onChanged,
     );
   }
 }

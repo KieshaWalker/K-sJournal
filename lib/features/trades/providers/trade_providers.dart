@@ -8,7 +8,8 @@ final preFlightTradesProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
   return supabase
       .from('trades')
-      .select('*')
+      .select('*, trade_underlying_legs(side, shares, entry_price, '
+          'current_price, exit_price)')
       .eq('status', 'pre_flight')
       .order('created_at', ascending: false);
 });
@@ -18,7 +19,8 @@ final inFlightTradesProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
   return supabase
       .from('trades')
-      .select('*, trade_comments(is_question)')
+      .select('*, trade_comments(is_question), trade_underlying_legs(side, '
+          'shares, entry_price, current_price, exit_price)')
       .eq('status', 'in_flight')
       .order('updated_at', ascending: false);
 });
@@ -27,8 +29,12 @@ final inFlightTradesProvider =
 /// trade does not exist or the viewer's tier cannot read it.
 final tradeDetailProvider = FutureProvider.autoDispose
     .family<Map<String, dynamic>?, String>((ref, tradeId) async {
-  final rows =
-      await supabase.from('trades').select('*').eq('id', tradeId).limit(1);
+  final rows = await supabase
+      .from('trades')
+      .select('*, trade_underlying_legs(side, shares, entry_price, '
+          'current_price, exit_price)')
+      .eq('id', tradeId)
+      .limit(1);
   return rows.isEmpty ? null : rows.first;
 });
 

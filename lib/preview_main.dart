@@ -141,6 +141,10 @@ final _ideas = <Map<String, dynamic>>[
         'I want to sell puts into the strength — still raw, no levels set.',
     'entry_iv_rank': 58,
     'tags': ['momentum'],
+    'trade_underlying_legs': [
+      {'side': 'long', 'shares': 200, 'entry_price': 242.0,
+        'current_price': null, 'exit_price': null},
+    ],
     'created_at': '2026-06-12T14:00:00Z',
   },
   {
@@ -197,6 +201,11 @@ final _inFlight = <Map<String, dynamic>>[
     'entry_iv_rank': 38,
     'thesis_notes': 'Sold the 595/590 put spread on the pullback to the '
         '20-day. Theta does the work from here.',
+    'tags': ['theta', 'index'],
+    'trade_underlying_legs': [
+      {'side': 'long', 'shares': 100, 'entry_price': 590.0,
+        'current_price': 612.4, 'exit_price': null},
+    ],
     'trade_comments': [
       {'is_question': true},
       {'is_question': false},
@@ -216,6 +225,7 @@ final _inFlight = <Map<String, dynamic>>[
     'entry_iv_rank': 55,
     'thesis_notes': 'Lower highs on declining volume. Risk one, looking for '
         'three on the breakdown.',
+    'tags': ['momentum', 'short'],
     'trade_comments': [
       {'is_question': false},
     ],
@@ -232,6 +242,11 @@ final _landed = <Map<String, dynamic>>[
     'outcome': 'win',
     'entry_date': '2026-05-12',
     'exit_date': '2026-05-28',
+    'tags': ['earnings', 'tech'],
+    'trade_underlying_legs': [
+      {'side': 'long', 'shares': 50, 'entry_price': 150.0,
+        'current_price': null, 'exit_price': 165.0},
+    ],
     'trade_comments': [
       {'is_question': false},
       {'is_question': false},
@@ -246,6 +261,7 @@ final _landed = <Map<String, dynamic>>[
     'outcome': 'loss',
     'entry_date': '2026-05-02',
     'exit_date': '2026-05-20',
+    'tags': ['premium-selling'],
     'trade_comments': [],
   },
   {

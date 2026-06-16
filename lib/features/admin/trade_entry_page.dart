@@ -109,6 +109,8 @@ class TradeEntryPage extends ConsumerWidget {
                           ref,
                           PreFlightFormDialog(trade: t),
                         ),
+                        onEdit: (t) =>
+                            _openDialog(context, ref, IdeaFormDialog(trade: t)),
                       ),
                       _StatusSection(
                         title: 'Pre-Flight',
@@ -304,7 +306,7 @@ class _StatusSection extends ConsumerWidget {
                             ),
                           if (onEdit != null)
                             IconButton(
-                              tooltip: 'Edit position',
+                              tooltip: 'Edit',
                               icon: const Icon(Icons.edit_outlined, size: 18),
                               onPressed: () => onEdit!(t),
                             ),

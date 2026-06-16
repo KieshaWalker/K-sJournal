@@ -98,7 +98,9 @@ final activeTradesProvider =
       .from('trades')
       .select('id, ticker, strategy_type, direction, status, unrealized_pnl, '
           'pnl_percent, current_price, current_as_of, entry_date, entry_price, '
-          'entry_iv_rank, thesis_notes, trade_comments(is_question)')
+          'entry_iv_rank, thesis_notes, tags, trade_comments(is_question), '
+          'trade_underlying_legs(side, shares, entry_price, current_price, '
+          'exit_price)')
       .eq('status', 'in_flight')
       .order('updated_at', ascending: false);
 });
@@ -111,7 +113,9 @@ final earlyIdeasProvider =
   return supabase
       .from('trades')
       .select('id, ticker, strategy_type, direction, thesis_notes, '
-          'entry_iv_rank, tags, created_at')
+          'entry_iv_rank, tags, created_at, '
+          'trade_underlying_legs(side, shares, entry_price, current_price, '
+          'exit_price)')
       .eq('status', 'idea')
       .order('created_at', ascending: false)
       .limit(6);
@@ -124,7 +128,9 @@ final preFlightIdeasProvider =
   return supabase
       .from('trades')
       .select('id, ticker, strategy_type, direction, thesis_notes, '
-          'entry_iv_rank, tags, created_at')
+          'entry_iv_rank, tags, created_at, '
+          'trade_underlying_legs(side, shares, entry_price, current_price, '
+          'exit_price)')
       .eq('status', 'pre_flight')
       .order('created_at', ascending: false)
       .limit(6);
@@ -136,7 +142,9 @@ final recentlyLandedProvider =
   return supabase
       .from('trades')
       .select('id, ticker, strategy_type, realized_pnl, pnl_percent, '
-          'outcome, entry_date, exit_date, trade_comments(is_question)')
+          'outcome, entry_date, exit_date, tags, trade_comments(is_question), '
+          'trade_underlying_legs(side, shares, entry_price, current_price, '
+          'exit_price)')
       .eq('status', 'landed')
       .order('exit_date', ascending: false)
       .limit(5);

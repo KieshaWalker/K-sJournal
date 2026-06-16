@@ -5,6 +5,7 @@ import '../../../core/theme.dart';
 import '../../../core/widgets/photo_attach.dart';
 import '../providers/admin_trade_providers.dart';
 import 'form_helpers.dart';
+import 'underlying_legs_field.dart';
 
 class _LegInput {
   String action = 'buy';
@@ -38,12 +39,19 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
   final _iv = TextEditingController(text: '');
   final _legs = <_LegInput>[_LegInput()];
   final _photo = PhotoAttachController();
+  final _underlying = UnderlyingLegsController();
   bool _imageCleared = false;
   String? _error;
   bool _busy = false;
 
   bool get _isCredit =>
       creditStrategies.contains(widget.trade['strategy_type'] as String);
+
+  @override
+  void initState() {
+    super.initState();
+    _underlying.loadFor(widget.trade['id'] as String);
+  }
 
   void _autoPositionSize() {
     final price = parseNum(_entryPrice);
@@ -119,6 +127,11 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
         return;
       }
     }
+    final underlyingError = _underlying.validate();
+    if (underlyingError != null) {
+      setState(() => _error = underlyingError);
+      return;
+    }
 
     setState(() {
       _busy = true;
@@ -157,6 +170,7 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
         else if (_imageCleared)
           'image_url': null,
       }).eq('id', tradeId);
+      await _underlying.persist(tradeId);
       if (mounted) Navigator.pop(context);
     } on Exception catch (e) {
       setState(() => _error = 'Save failed: $e');
@@ -259,6 +273,8 @@ class _InFlightFormDialogState extends State<InFlightFormDialog> {
           ),
         ]),
         for (var i = 0; i < _legs.length; i++) _legRow(i),
+        const SizedBox(height: 20),
+        UnderlyingLegsField(controller: _underlying, showCurrent: true),
         const SizedBox(height: 8),
         Row(children: [
           PhotoAttachField(

@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/glossy_card.dart';
 import '../../core/widgets/photo_attach.dart';
 import '../../core/widgets/position_freshness.dart';
+import '../../core/widgets/underlying_summary.dart';
 import 'providers/trade_providers.dart';
 import 'trades_list_page.dart';
 
@@ -181,6 +182,10 @@ class _TradeDetail extends StatelessWidget {
             ('IV %ile', _num(t['entry_iv_pct'], 0)),
           ],
         ),
+        if (underlyingRowsOf(t).isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _UnderlyingCard(rows: underlyingRowsOf(t)),
+        ],
         if (inFlight || landed) ...[
           const SizedBox(height: 16),
           _StatsCard(
@@ -267,9 +272,14 @@ class _TradeDetail extends StatelessWidget {
     );
   }
 
+  /// Landed P&L is the stored (already blended) realized figure; in-flight is
+  /// the options unrealized blended with the underlying.
+  static double? _pnl(Map<String, dynamic> t, {required bool landed}) => landed
+      ? (t['realized_pnl'] as num?)?.toDouble()
+      : combinedUnrealizedPnl(t);
+
   static String _pnlText(Map<String, dynamic> t, {required bool landed}) {
-    final pnl = ((landed ? t['realized_pnl'] : t['unrealized_pnl']) as num?)
-        ?.toDouble();
+    final pnl = _pnl(t, landed: landed);
     final pct = (t['pnl_percent'] as num?)?.toDouble();
     if (pnl == null) return '—';
     final sign = pnl >= 0 ? '+' : '−';
@@ -279,8 +289,7 @@ class _TradeDetail extends StatelessWidget {
   }
 
   static Color _pnlColor(Map<String, dynamic> t, {required bool landed}) {
-    final pnl = ((landed ? t['realized_pnl'] : t['unrealized_pnl']) as num?)
-        ?.toDouble();
+    final pnl = _pnl(t, landed: landed);
     if (pnl == null) return KColors.neutral;
     return pnl >= 0 ? KColors.positive : KColors.negative;
   }
@@ -430,6 +439,40 @@ class _LegsCard extends ConsumerWidget {
             ),
       orElse: () => const SizedBox.shrink(),
     );
+  }
+}
+
+// ---- Underlying ----
+
+class _UnderlyingCard extends StatelessWidget {
+  const _UnderlyingCard({required this.rows});
+
+  final List<Map<String, dynamic>> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlossyCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _Label('Underlying'),
+          const SizedBox(height: 12),
+          for (final r in rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(_line(r), style: KFonts.data(size: 13)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // SIDE shares sh @ entry [→ exit|current] — exit wins once landed.
+  static String _line(Map<String, dynamic> r) {
+    final side = (r['side'] as String? ?? 'long').toUpperCase();
+    final close = r['exit_price'] ?? r['current_price'];
+    final tail = close == null ? '' : ' → ${_num(close, 2)}';
+    return '$side ${r['shares']} sh @ ${_num(r['entry_price'], 2)}$tail';
   }
 }
 

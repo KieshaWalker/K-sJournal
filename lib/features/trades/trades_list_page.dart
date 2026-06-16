@@ -6,6 +6,8 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/glossy_card.dart';
 import '../../core/widgets/position_freshness.dart';
+import '../../core/widgets/tag_chips.dart';
+import '../../core/widgets/underlying_summary.dart';
 import 'providers/trade_providers.dart';
 import 'widgets/comment_counts.dart';
 
@@ -104,9 +106,10 @@ class _TradeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = trade;
     final inFlight = t['status'] == 'in_flight';
-    final pnl = (t['unrealized_pnl'] as num?)?.toDouble();
+    final pnl = combinedUnrealizedPnl(t);
     final pnlPct = (t['pnl_percent'] as num?)?.toDouble();
     final ivr = (t['entry_iv_rank'] as num?)?.toDouble();
+    final tags = (t['tags'] as List?)?.cast<String>() ?? const [];
     final pnlColor = pnl == null
         ? KColors.neutral
         : pnl >= 0
@@ -173,6 +176,11 @@ class _TradeCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13, height: 1.5),
               ),
+              if (tags.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                TagChips(tags),
+              ],
+              UnderlyingLine(t),
               const SizedBox(height: 8),
               Row(
                 children: [
