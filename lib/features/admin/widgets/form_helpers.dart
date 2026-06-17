@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/widgets/confidence_badge.dart';
 
 class FormDialogShell extends StatelessWidget {
   const FormDialogShell({
@@ -104,3 +105,31 @@ class NumField extends StatelessWidget {
 
 double? parseNum(TextEditingController c) =>
     double.tryParse(c.text.trim().replaceAll(',', ''));
+
+/// K's conviction grade picker — the confidence she's putting behind the name.
+/// [value] is the stored 'low'|'medium'|'high' (or null = ungraded); [onChanged]
+/// hands back the same. Ungraded stays a first-class choice so K can defer.
+class ConfidenceField extends StatelessWidget {
+  const ConfidenceField({super.key, required this.value, required this.onChanged});
+
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String?>(
+      initialValue: value,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Conviction',
+        helperText: 'How much confidence behind the name — and how much risk.',
+      ),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('Ungraded')),
+        for (final c in Conviction.values)
+          DropdownMenuItem(value: c.value, child: Text(c.longLabel)),
+      ],
+      onChanged: onChanged,
+    );
+  }
+}

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/confidence_badge.dart';
 import '../../core/widgets/glossy_card.dart';
 import '../../core/widgets/photo_attach.dart';
 import '../../core/widgets/position_freshness.dart';
@@ -120,6 +121,10 @@ class _TradeDetail extends StatelessWidget {
                   _StatusChip(status: status, outcome: t['outcome'] as String?),
                 ],
               ),
+              if (convictionOf(t['confidence']) != null) ...[
+                const SizedBox(height: 12),
+                ConfidenceBadge(t['confidence']),
+              ],
               if (inFlight || landed) ...[
                 const SizedBox(height: 14),
                 Text(

@@ -22,6 +22,7 @@ class _PreFlightFormDialogState extends State<PreFlightFormDialog> {
   final _ivRank = TextEditingController();
   final _ivPct = TextEditingController();
   late String _strategy = widget.trade['strategy_type'] as String;
+  late String? _confidence = widget.trade['confidence'] as String?;
   final _underlying = UnderlyingLegsController();
   final _photos = TradePhotosController();
   String? _error;
@@ -82,6 +83,7 @@ class _PreFlightFormDialogState extends State<PreFlightFormDialog> {
       await supabase.from('trades').update({
         'status': 'pre_flight',
         'strategy_type': _strategy,
+        'confidence': _confidence,
         'entry_iv': iv,
         'entry_iv_rank': parseNum(_ivRank),
         'entry_iv_pct': parseNum(_ivPct),
@@ -116,6 +118,11 @@ class _PreFlightFormDialogState extends State<PreFlightFormDialog> {
               DropdownMenuItem(value: s, child: Text(strategyLabel(s))),
           ],
           onChanged: (v) => setState(() => _strategy = v!),
+        ),
+        const SizedBox(height: 16),
+        ConfidenceField(
+          value: _confidence,
+          onChanged: (v) => setState(() => _confidence = v),
         ),
         const SizedBox(height: 16),
         Row(children: [

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase_client.dart';
+import '../../../core/widgets/confidence_badge.dart';
 
 class MacroTile {
   const MacroTile({
@@ -163,7 +164,8 @@ final activeTradesProvider =
       .from('trades')
       .select('id, ticker, strategy_type, direction, status, unrealized_pnl, '
           'pnl_percent, current_price, current_as_of, entry_date, entry_price, '
-          'entry_iv_rank, thesis_notes, tags, trade_comments(is_question), '
+          'entry_iv_rank, thesis_notes, tags, confidence, '
+          'trade_comments(is_question), '
           'trade_underlying_legs(side, shares, entry_price, current_price, '
           'exit_price)')
       .eq('status', 'in_flight')
@@ -178,7 +180,7 @@ final earlyIdeasProvider =
   return supabase
       .from('trades')
       .select('id, ticker, strategy_type, direction, thesis_notes, '
-          'entry_iv_rank, tags, created_at, '
+          'entry_iv_rank, tags, confidence, created_at, '
           'trade_underlying_legs(side, shares, entry_price, current_price, '
           'exit_price)')
       .eq('status', 'idea')
@@ -193,7 +195,7 @@ final preFlightIdeasProvider =
   return supabase
       .from('trades')
       .select('id, ticker, strategy_type, direction, thesis_notes, '
-          'entry_iv_rank, tags, created_at, '
+          'entry_iv_rank, tags, confidence, created_at, '
           'trade_underlying_legs(side, shares, entry_price, current_price, '
           'exit_price)')
       .eq('status', 'pre_flight')
@@ -207,7 +209,8 @@ final recentlyLandedProvider =
   return supabase
       .from('trades')
       .select('id, ticker, strategy_type, realized_pnl, pnl_percent, '
-          'outcome, entry_date, exit_date, tags, trade_comments(is_question), '
+          'outcome, entry_date, exit_date, tags, confidence, '
+          'trade_comments(is_question), '
           'trade_underlying_legs(side, shares, entry_price, current_price, '
           'exit_price)')
       .eq('status', 'landed')
@@ -252,36 +255,85 @@ class LandedStats {
   /// are none of that kind yet.
   double? get avgWin => wins == 0 ? null : winPnl / wins;
   double? get avgLoss => losses == 0 ? null : lossPnl / losses;
+
+  /// Tally the win/loss/scratch and realized-P&L numbers off a set of landed
+  /// `{realized_pnl, outcome}` rows. Null realized_pnl counts as zero.
+  factory LandedStats.fromRows(List<Map<String, dynamic>> rows) {
+    var pnl = 0.0, winPnl = 0.0, lossPnl = 0.0;
+    var wins = 0, losses = 0, scratches = 0;
+    for (final r in rows) {
+      final v = (r['realized_pnl'] as num?)?.toDouble() ?? 0;
+      pnl += v;
+      switch (r['outcome'] as String?) {
+        case 'win':
+          wins++;
+          winPnl += v;
+        case 'loss':
+          losses++;
+          lossPnl += v;
+        case 'scratch':
+          scratches++;
+      }
+    }
+    return LandedStats(
+      count: rows.length,
+      realizedPnl: pnl,
+      wins: wins,
+      losses: losses,
+      scratches: scratches,
+      winPnl: winPnl,
+      lossPnl: lossPnl,
+    );
+  }
 }
 
-final landedStatsProvider = FutureProvider<LandedStats>((ref) async {
+/// Outcome + P&L + conviction grade for every landed trade. The single read
+/// behind both the headline stats and the per-conviction breakdown — Riverpod
+/// caches it, so the two derived providers share one round-trip.
+final _landedRowsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final rows = await supabase
       .from('trades')
-      .select('realized_pnl, outcome')
+      .select('realized_pnl, outcome, confidence')
       .eq('status', 'landed');
-  var pnl = 0.0, winPnl = 0.0, lossPnl = 0.0;
-  var wins = 0, losses = 0, scratches = 0;
+  return List<Map<String, dynamic>>.from(rows);
+});
+
+final landedStatsProvider = FutureProvider<LandedStats>((ref) async {
+  final rows = await ref.watch(_landedRowsProvider.future);
+  return LandedStats.fromRows(rows);
+});
+
+/// One conviction bucket's landed record — null [level] is the ungraded
+/// catch-all for trades K closed without a grade (or that predate grading).
+class ConfidenceBucket {
+  const ConfidenceBucket({required this.level, required this.stats});
+
+  final Conviction? level;
+  final LandedStats stats;
+}
+
+/// Landed record split by K's conviction grade, ordered high → medium → low →
+/// ungraded. Only buckets with at least one landed trade are returned, so the
+/// grid never paints an empty column.
+final landedConfidenceStatsProvider =
+    FutureProvider<List<ConfidenceBucket>>((ref) async {
+  final rows = await ref.watch(_landedRowsProvider.future);
+  final byLevel = <Conviction?, List<Map<String, dynamic>>>{};
   for (final r in rows) {
-    final v = (r['realized_pnl'] as num?)?.toDouble() ?? 0;
-    pnl += v;
-    switch (r['outcome'] as String?) {
-      case 'win':
-        wins++;
-        winPnl += v;
-      case 'loss':
-        losses++;
-        lossPnl += v;
-      case 'scratch':
-        scratches++;
-    }
+    byLevel.putIfAbsent(convictionOf(r['confidence']), () => []).add(r);
   }
-  return LandedStats(
-    count: rows.length,
-    realizedPnl: pnl,
-    wins: wins,
-    losses: losses,
-    scratches: scratches,
-    winPnl: winPnl,
-    lossPnl: lossPnl,
-  );
+  return [
+    for (final level in const [
+      Conviction.high,
+      Conviction.medium,
+      Conviction.low,
+      null,
+    ])
+      if (byLevel[level]?.isNotEmpty ?? false)
+        ConfidenceBucket(
+          level: level,
+          stats: LandedStats.fromRows(byLevel[level]!),
+        ),
+  ];
 });

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/confidence_badge.dart';
 import '../../core/widgets/glossy_card.dart';
 import '../../core/widgets/photo_attach.dart';
 import '../../core/widgets/position_freshness.dart';
@@ -61,22 +62,28 @@ class _TopSection extends StatelessWidget {
           ],
         );
       }
-      return const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionLabel('Insights'),
-                SizedBox(height: 12),
-                _InsightsFeed(),
-              ],
+      // IntrinsicHeight + stretch lets the Insights column take the height of
+      // the taller side (Macro Pulse + Calendar), so the Insights card runs the
+      // full length of the calendar instead of stopping short. Macro Pulse keeps
+      // its own layout; only the Insights side fills the gap.
+      return const IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel('Insights'),
+                  SizedBox(height: 12),
+                  Expanded(child: _InsightsFeed()),
+                ],
+              ),
             ),
-          ),
-          SizedBox(width: 24),
-          Expanded(child: _MacroPulse()),
-        ],
+            SizedBox(width: 24),
+            Expanded(child: _MacroPulse()),
+          ],
+        ),
       );
     });
   }
@@ -293,23 +300,24 @@ class _InsightsFeed extends ConsumerWidget {
         if (rows.isEmpty) {
           return const _MessageCard('No insight published yet.');
         }
-        // Grows with content up to the cap, then the feed scrolls — keeps
-        // the slot level with Macro Pulse no matter how much K writes.
-        return ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 420),
-          child: GlossyCard(
-            padding: EdgeInsets.zero,
-            hoverLift: false,
-            child: ListView.separated(
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: rows.length,
-              separatorBuilder: (_, _) => Container(
-                height: 1,
-                decoration: const BoxDecoration(gradient: KGold.hairline),
-              ),
-              itemBuilder: (_, i) => _InsightTile(insight: rows[i]),
-            ),
+        // A plain Column (not a scroll view) so the card can stretch to the
+        // calendar's height via the IntrinsicHeight row above — entries flow
+        // top-down and the card fills whatever length the calendar sets.
+        return GlossyCard(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          hoverLift: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0)
+                  Container(
+                    height: 1,
+                    decoration: const BoxDecoration(gradient: KGold.hairline),
+                  ),
+                _InsightTile(insight: rows[i]),
+              ],
+            ],
           ),
         );
       },
@@ -862,6 +870,10 @@ class _IdeaCardState extends State<_IdeaCard> {
                       style: KFonts.data(size: 11, color: KColors.accent)),
               ],
             ),
+            if (convictionOf(t['confidence']) != null) ...[
+              const SizedBox(height: 10),
+              ConfidenceBadge(t['confidence']),
+            ],
             const SizedBox(height: 10),
             Text(
               (t['thesis_notes'] as String?) ?? '',
@@ -981,6 +993,10 @@ class _InFlightCardState extends State<_InFlightCard> {
                 ),
               ],
             ),
+            if (convictionOf(t['confidence']) != null) ...[
+              const SizedBox(height: 10),
+              ConfidenceBadge(t['confidence']),
+            ],
             const SizedBox(height: 12),
             Text(
               pnl == null
@@ -1088,6 +1104,7 @@ class _RecentlyLanded extends ConsumerWidget {
                 orElse: () => null),
             linkLabel: 'View all →', linkPath: '/ideas'),
         const SizedBox(height: 4),
+        const _ConfidenceWinRateGrid(),
         trades.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => const _MessageCard('Could not load history.',
@@ -1104,6 +1121,134 @@ class _RecentlyLanded extends ConsumerWidget {
     );
   }
 
+}
+
+/// K's landed record sliced by the conviction she graded each setup — does high
+/// confidence actually win more than low? One tile per grade that has landed at
+/// least one trade, ordered high → medium → low → ungraded. Hidden entirely
+/// until something has landed.
+class _ConfidenceWinRateGrid extends ConsumerWidget {
+  const _ConfidenceWinRateGrid();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(landedConfidenceStatsProvider).maybeWhen(
+          data: (buckets) => buckets.isEmpty
+              ? const SizedBox.shrink()
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    const Text(
+                      'WIN RATE BY CONVICTION',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                        color: KColors.memberTextSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      children: [
+                        for (final b in buckets) _ConfidenceTile(bucket: b),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+          orElse: () => const SizedBox.shrink(),
+        );
+  }
+}
+
+class _ConfidenceTile extends StatelessWidget {
+  const _ConfidenceTile({required this.bucket});
+
+  final ConfidenceBucket bucket;
+
+  @override
+  Widget build(BuildContext context) {
+    final level = bucket.level;
+    final stats = bucket.stats;
+    final color = level?.color ?? KColors.neutral;
+    final wr = stats.winRate;
+    final record = [
+      '${stats.wins}W',
+      '${stats.losses}L',
+      if (stats.scratches > 0) '${stats.scratches} scratch',
+    ].join(' · ');
+    return GlossyCard(
+      width: 210,
+      radius: 14,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _LevelPill(level),
+              const Spacer(),
+              Text(
+                '${stats.count} trade${stats.count == 1 ? '' : 's'}',
+                style: const TextStyle(
+                    fontSize: 11, color: KColors.memberTextSecondary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            wr == null ? '—' : '${(wr * 100).round()}%',
+            style: KFonts.data(size: 26, weight: FontWeight.w600, color: color),
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'win rate',
+            style: TextStyle(fontSize: 11, color: KColors.memberTextSecondary),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            record,
+            style: KFonts.data(size: 12, color: KColors.memberTextSecondary),
+          ),
+          const SizedBox(height: 8),
+          _PnlTotal(stats.realizedPnl),
+        ],
+      ),
+    );
+  }
+}
+
+/// The conviction grade heading on a win-rate tile — same pill language as
+/// [ConfidenceBadge], but it names the ungraded bucket rather than vanishing.
+class _LevelPill extends StatelessWidget {
+  const _LevelPill(this.level);
+
+  final Conviction? level;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = level?.color ?? KColors.neutral;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        (level?.shortLabel ?? 'Ungraded').toUpperCase(),
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.2,
+          color: color,
+        ),
+      ),
+    );
+  }
 }
 
 /// M/d/yy for a stored 'yyyy-mm-dd' date string, em dash when absent.
@@ -1159,6 +1304,10 @@ class _LandedCard extends StatelessWidget {
                 style: KFonts.data(
                     size: 11, color: KColors.memberTextSecondary),
               ),
+              if (convictionOf(t['confidence']) != null) ...[
+                const SizedBox(height: 8),
+                ConfidenceBadge(t['confidence']),
+              ],
               const SizedBox(height: 10),
               Text(
                 pnl == null

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/providers/auth_provider.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/confidence_badge.dart';
 import '../../core/widgets/glossy_card.dart';
 import '../../core/widgets/position_freshness.dart';
 import '../../core/widgets/tag_chips.dart';
@@ -152,6 +153,10 @@ class _TradeCard extends StatelessWidget {
                     ),
                 ],
               ),
+              if (convictionOf(t['confidence']) != null) ...[
+                const SizedBox(height: 10),
+                ConfidenceBadge(t['confidence']),
+              ],
               const SizedBox(height: 10),
               if (inFlight) ...[
                 Text(

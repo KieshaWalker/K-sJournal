@@ -32,6 +32,7 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
   late String _direction = widget.trade?['direction'] as String? ?? 'bearish';
   late String _strategy =
       widget.trade?['strategy_type'] as String? ?? 'put_spread';
+  late String? _confidence = widget.trade?['confidence'] as String?;
   String? _error;
   bool _busy = false;
 
@@ -73,6 +74,7 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
         'direction': _direction,
         'strategy_type': _strategy,
         'thesis_notes': _thesis.text.trim(),
+        'confidence': _confidence,
         'tags': _tags.text.trim().isEmpty
             ? null
             : _tags.text.split(',').map((t) => t.trim()).toList(),
@@ -136,6 +138,11 @@ class _IdeaFormDialogState extends State<IdeaFormDialog> {
               DropdownMenuItem(value: s, child: Text(strategyLabel(s))),
           ],
           onChanged: (v) => setState(() => _strategy = v!),
+        ),
+        const SizedBox(height: 16),
+        ConfidenceField(
+          value: _confidence,
+          onChanged: (v) => setState(() => _confidence = v),
         ),
         const SizedBox(height: 16),
         TextField(
