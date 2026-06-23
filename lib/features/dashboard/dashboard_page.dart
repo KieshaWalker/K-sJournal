@@ -300,25 +300,28 @@ class _InsightsFeed extends ConsumerWidget {
         if (rows.isEmpty) {
           return const _MessageCard('No insight published yet.');
         }
-        // A plain Column (not a scroll view) so the card can stretch to the
-        // calendar's height via the IntrinsicHeight row above — entries flow
-        // top-down and the card fills whatever length the calendar sets.
-        return GlossyCard(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          hoverLift: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < rows.length; i++) ...[
-                if (i > 0)
-                  Container(
+        // Positioned.fill keeps the scrolling list out of the IntrinsicHeight
+        // pass above, so the calendar — not this feed — sets the row height.
+        // The card fills that height and the list scrolls within it, instead of
+        // stretching the page out to show every insight.
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GlossyCard(
+                padding: EdgeInsets.zero,
+                hoverLift: false,
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: rows.length,
+                  separatorBuilder: (_, _) => Container(
                     height: 1,
                     decoration: const BoxDecoration(gradient: KGold.hairline),
                   ),
-                _InsightTile(insight: rows[i]),
-              ],
-            ],
-          ),
+                  itemBuilder: (_, i) => _InsightTile(insight: rows[i]),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
